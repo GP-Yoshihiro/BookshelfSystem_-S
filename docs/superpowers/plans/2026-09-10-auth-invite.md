@@ -297,7 +297,7 @@ export function toSignUpErrorMessage(error: unknown): string {
 - [ ] **Step 7: テストを実行して成功を確認**
 
 Run: `npm test`
-Expected: PASS（15 テスト）
+Expected: PASS（10 テスト）
 
 - [ ] **Step 8: 型チェックと lint を通す**
 
@@ -860,7 +860,7 @@ export function useReauth(): ReauthContextValue {
 - [ ] **Step 5: テストを実行して成功を確認**
 
 Run: `npm test -- useReauth`
-Expected: PASS（12 テスト）
+Expected: PASS（11 テスト）
 
 - [ ] **Step 6: 型チェックと lint を通す**
 
@@ -1680,7 +1680,7 @@ export function formatExpiry(expiresAt: string | null, now: Date): string {
 - [ ] **Step 4: テストを実行して成功を確認**
 
 Run: `npm test -- format`
-Expected: PASS（12 テスト）
+Expected: PASS（11 テスト）
 
 - [ ] **Step 5: Server Actions を実装**
 
