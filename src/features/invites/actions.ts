@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { toExpiresInDays, type InviteExpiryOption } from './format';
-import type { InviteActionState } from './state';
+
+export interface InviteActionState {
+  errorMessage: string;
+  successMessage: string;
+}
 
 // 'use server' ファイルの全エクスポートは Server Reference として扱われるため、
 // 値のエクスポート（INVITE_INITIAL_STATE）はここに置けない。

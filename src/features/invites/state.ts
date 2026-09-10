@@ -1,3 +1,5 @@
+import type { InviteActionState } from './actions';
+
 /**
  * 招待コード用フォームの初期状態。
  *
@@ -7,12 +9,6 @@
  * 受け取れず（静的プリレンダリング時にクラッシュする）、この非 'use server'
  * ファイルに分離している（Task 6 の src/features/auth/state.ts と同様）。
  */
-
-export interface InviteActionState {
-  errorMessage: string;
-  successMessage: string;
-}
-
 export const INVITE_INITIAL_STATE: InviteActionState = {
   errorMessage: '',
   successMessage: '',
