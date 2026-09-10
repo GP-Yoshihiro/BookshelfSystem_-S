@@ -9,6 +9,17 @@ const ENDPOINT =
 const HITS_PER_PAGE = 30;
 
 /**
+ * .env.local.example に記載されているプレースホルダ文字列。
+ *
+ * .env.local.example をコピーして .env.local を作った際、この値を
+ * 書き換えずに残すと「空文字ではない」ため設定済みと誤判定されてしまう。
+ * その結果、無効なIDのまま楽天APIへリクエストが送られ、開発者には
+ * 原因の分からない「検索に失敗しました」というエラーだけが見える。
+ * これを防ぐため、既知のプレースホルダは明示的に未設定として扱う。
+ */
+const PLACEHOLDER_APP_ID = 'your-rakuten-application-id';
+
+/**
  * 楽天ウェブサービスのアプリIDが設定されているか。
  *
  * getServerEnv() は未設定だと例外を投げるため、未設定判定には使えない。
@@ -16,7 +27,11 @@ const HITS_PER_PAGE = 30;
  */
 export function isRakutenConfigured(): boolean {
   const appId = process.env.RAKUTEN_APP_ID;
-  return typeof appId === 'string' && appId.trim().length > 0;
+  if (typeof appId !== 'string') {
+    return false;
+  }
+  const trimmed = appId.trim();
+  return trimmed.length > 0 && trimmed !== PLACEHOLDER_APP_ID;
 }
 
 /** レスポンスの値を安全に文字列へ寄せる。欠けている項目は空文字にする */

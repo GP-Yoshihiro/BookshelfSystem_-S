@@ -18,12 +18,15 @@ export async function getCachedRakutenSearch(
   keyword: string,
   page: number,
 ): Promise<RakutenSearchResult> {
+  // 未設定の案内はキーワード未入力時（/search を開いた直後）にも
+  // 出す必要があるため、空キーワードの早期リターンより前に判定する。
+  if (!isRakutenConfigured()) {
+    return { ok: false, reason: 'not_configured' };
+  }
+
   const trimmed = keyword.trim();
   if (trimmed.length === 0) {
     return { ok: true, items: [], count: 0, page, pageCount: 0 };
-  }
-  if (!isRakutenConfigured()) {
-    return { ok: false, reason: 'not_configured' };
   }
 
   const load = unstable_cache(
