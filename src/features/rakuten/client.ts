@@ -22,7 +22,7 @@ const PLACEHOLDER_APP_ID = 'your-rakuten-application-id';
 /**
  * 楽天ウェブサービスのアプリIDが設定されているか。
  *
- * getServerEnv() は未設定だと例外を投げるため、未設定判定には使えない。
+ * 環境変数を必須として読む関数は未設定だと例外を投げるため、判定には使えない。
  * ここでは値そのものを返さず、設定の有無だけを返す。
  */
 export function isRakutenConfigured(): boolean {
