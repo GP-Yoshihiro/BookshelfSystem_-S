@@ -1481,24 +1481,142 @@ EOF
 
 ---
 
-### Task 7: 受け入れ確認と PR 作成
+## タスク7以降の実行順序について
 
-**Files:** 変更なし（検証のみ）
+楽天ウェブサービスのアプリ登録（https://webservice.rakuten.co.jp/app/create）には
+**アプリのURLの入力が必要**なため、APIキーはデプロイ後でないと取得できない。
+したがって以下の順序で進める。
+
+```
+Task 1〜6  実装（APIキー不要）
+   ↓
+Task 7     キーなしで壊れないことを検証し、デプロイ手順を整えて PR を作成
+   ↓
+人間       PR をマージ → Vercel へデプロイ → 楽天でアプリ登録してキーを取得
+   ↓
+Task 8     キー設定後の受け入れ確認（ジャンルID確定・手動テスト）
+```
+
+この順序が成立するのは、設計書 4.4 章で「APP_ID 未設定時は例外を投げず案内を出す」と
+決めているため。`isRakutenConfigured()` が `false` を返す状態でも検索画面は表示でき、
+デプロイの妨げにならない。
+
+---
+
+### Task 7: デプロイ可能な状態の検証と PR 作成
+
+**Files:**
+- Modify: `.env.local.example`（`RAKUTEN_APP_ID` の取得手順をコメントで補足）
 
 **Interfaces:**
 - Consumes: Task 1〜6 のすべて
-- Produces: PR
+- Produces: PR、デプロイ手順
 
-**前提:** 以下が完了していること。未完了なら人間へ依頼する。
-1. `supabase/migrations/0006_add_release_date_text.sql` の適用
-2. `.env.local` への `RAKUTEN_APP_ID` の設定
+**前提:** `supabase/migrations/0006_add_release_date_text.sql` が適用済みであること。
+未適用なら人間へ依頼する。**`RAKUTEN_APP_ID` は未設定のままでよい。**
 
 - [ ] **Step 1: 自動検証**
 
 Run: `npm run typecheck && npm run lint && npm test && npm run build`
-Expected: すべてエラー・警告なし
+Expected: すべてエラー・警告なし。build のルート一覧に `/search` が現れる
 
-- [ ] **Step 2: ライトノベルのジャンルIDを実APIで確定する**
+- [ ] **Step 2: APIキー未設定でも壊れないことを確認**
+
+`.env.local` の `RAKUTEN_APP_ID` が未設定（またはプレースホルダ）の状態で
+`npm run dev` を起動し、`/search` を開く。
+
+期待結果:
+- エラー画面ではなく「楽天ウェブサービスのアプリIDが未設定です。」の案内が出る
+- 検索フォーム自体は表示され、他の画面（`/`、`/settings/invites`）も正常に動く
+- サーバーログに APP_ID の値が出ていない
+
+**これが通らなければデプロイできない。** 通らない場合は BLOCKED として報告すること。
+
+確認が終わったら開発サーバーを止める（`npm run build` と同時に動かさないため）。
+
+- [ ] **Step 3: `.env.local.example` に取得手順を書く**
+
+`RAKUTEN_APP_ID` の行の直前へ、以下の主旨のコメントを日本語で追加する。
+
+```
+# 楽天ウェブサービスのアプリID。
+# https://webservice.rakuten.co.jp/app/create で取得する。
+# 登録にはアプリのURLが必要なため、デプロイ後に取得して設定する。
+# 未設定でもアプリは起動し、検索画面に設定を促す案内が出る。
+```
+
+- [ ] **Step 4: 再検証してコミット**
+
+Run: `npm run typecheck && npm run lint && npm test && npm run build`
+
+```bash
+git add .env.local.example
+git commit -m "$(cat <<'EOF'
+docs: RAKUTEN_APP_ID の取得手順を env の例へ追記
+
+楽天のアプリ登録にはアプリのURLが必要でデプロイ後にしか取得できないため、
+その旨と未設定でも起動することを明記する。
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+- [ ] **Step 5: プッシュして PR を作成**
+
+```bash
+git push -u origin feature/rakuten-api
+```
+
+PR の本文には後述の「デプロイ手順」を含めること（Step 6 参照）。
+
+- [ ] **Step 6: PR にデプロイ手順を記載する**
+
+PR 本文へ以下を含める。人間がこの手順でデプロイし、キーを取得する。
+
+```
+## マージ後の手順
+
+1. Vercel へデプロイする。環境変数に以下を設定する:
+   - NEXT_PUBLIC_SUPABASE_URL
+   - NEXT_PUBLIC_SUPABASE_ANON_KEY
+   - SUPABASE_SERVICE_ROLE_KEY
+   - NEXT_PUBLIC_SITE_URL（払い出された Vercel の URL）
+   RAKUTEN_APP_ID はこの時点では未設定でよい。
+2. Supabase の Authentication → URL Configuration で、Site URL と
+   Redirect URLs に Vercel の URL を追加する。
+3. https://webservice.rakuten.co.jp/app/create でアプリを登録する。
+   アプリURL欄に Vercel の URL を入力する。
+4. 払い出された applicationId を、Vercel の環境変数 RAKUTEN_APP_ID と
+   ローカルの .env.local の両方へ設定する。
+5. Vercel を再デプロイする（環境変数の反映のため）。
+```
+
+- [ ] **Step 7: 人間へ引き継ぐ**
+
+```bash
+say -v Kyoko -r 200 "実装が完了しました。デプロイとAPIキーの取得をお願いします。"
+```
+
+マージは人間の承認を得てから行う（CLAUDE.md 3章）。
+
+---
+
+### Task 8: APIキー設定後の受け入れ確認
+
+**Files:**
+- Modify: `src/features/rakuten/parse.ts`（`LIGHT_NOVEL_GENRE_PREFIXES` の確定）
+
+**Interfaces:**
+- Consumes: Task 1〜7 のすべて
+- Produces: 確定したジャンルID
+
+**前提:** 以下がすべて完了していること。未完了なら BLOCKED として報告する。
+1. `supabase/migrations/0006_add_release_date_text.sql` の適用
+2. Vercel へのデプロイ
+3. `.env.local` と Vercel への `RAKUTEN_APP_ID` の設定
+
+- [ ] **Step 1: ライトノベルのジャンルIDを実APIで確定する**
 
 `RAKUTEN_APP_ID` 設定後、ライトノベル作品（例: 「ソードアート・オンライン」）を
 検索し、レスポンスの `booksGenreId` を確認する。`parse.ts` の
@@ -1511,7 +1629,7 @@ Expected: すべてエラー・警告なし
 curl -s "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?applicationId=$(grep '^RAKUTEN_APP_ID=' .env.local | cut -d= -f2)&formatVersion=2&keyword=ソードアート・オンライン&hits=3" | python3 -c "import sys,json;[print(i.get('title'),'|',i.get('size'),'|',i.get('booksGenreId')) for i in json.load(sys.stdin).get('Items',[])]"
 ```
 
-- [ ] **Step 3: 手動での受け入れ確認**
+- [ ] **Step 2: 手動での受け入れ確認**
 
 `npm run dev` を起動し、設計書13章の受け入れ基準を順に確認する。
 
@@ -1532,7 +1650,7 @@ curl -s "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?applic
 **基準10は必ず実施すること。** 設計書 8.1 のリスクに対応する唯一の実地確認である。
 工程Aで作成した一般ユーザー（ようざん０２）を使う。
 
-- [ ] **Step 4: DB で保存結果を検証**
+- [ ] **Step 3: DB で保存結果を検証**
 
 Supabase MCP の `execute_sql` で以下を確認する（読み取りのみ）。
 
@@ -1547,65 +1665,56 @@ order by created_at desc;
 `is_purchased = false` の行で `has_purchased_at` が false であること、
 `latest_release_date` が null の行に `release_date_text` が入っていることを確認する。
 
-- [ ] **Step 5: Supabase Linter に新規警告がないことを確認**
+- [ ] **Step 4: Supabase Linter に新規警告がないことを確認**
 
 `get_advisors` を security / performance の両方で実行する。
 `0006` はカラム追加のみのため新規警告は出ない見込み。
 
-- [ ] **Step 6: プッシュして PR を作成**
+- [ ] **Step 5: ジャンルIDの修正をコミットする**
+
+Step 1 で `LIGHT_NOVEL_GENRE_PREFIXES` を修正した場合のみ実施する。
+値が既に正しければコメントの「実APIで未検証」だけを削除してコミットする。
+
+Task 7 の PR は既にマージ済みのため、`main` から新しいブランチを切ること。
 
 ```bash
-git push -u origin feature/rakuten-api
-gh pr create --base main --title "feat: 楽天ブックスAPI連携とサーバーキャッシュを実装" --body "$(cat <<'EOF'
-README の機能要件D（外部API連携 & キャッシュ）を実装する。
+git checkout main && git pull origin main
+git checkout -b fix/light-novel-genre-id
+npm run typecheck && npm run lint && npm test && npm run build
+git add src/features/rakuten/parse.ts
+git commit -m "$(cat <<'EOF'
+fix: ライトノベルのジャンルIDを実APIの値で確定する
 
-## 実装内容
+暫定値のまま置いていた LIGHT_NOVEL_GENRE_PREFIXES を、実際の楽天API
+レスポンスで確認した値へ更新し、未検証である旨のコメントを削除する。
 
-- 書籍検索画面（`/search`）
-- 楽天ブックスAPIクライアント（サーバー側専用）
-- 分類の自動推定と保存時の手動修正
-- 発売日の表記揺れ解析
-- 本棚への保存（購入済み / 未購入）
-- unstable_cache / revalidateTag によるサーバーキャッシュ
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+EOF
+)"
+git push -u origin fix/light-novel-genre-id
+gh pr create --base main --title "fix: ライトノベルのジャンルIDを実APIの値で確定する" --body "$(cat <<'EOF'
+実APIのレスポンスで確認したジャンルIDへ更新し、暫定値である旨のコメントを削除する。
 
-## 設計上の判断
+## 確認方法
 
-発売日は「2026年秋」のような確定できない表記を返すため、確定日のみ
-latest_release_date に入れ、原文は新設の release_date_text に保持する。
-曖昧な表記をその月の1日などと解釈すると、カレンダーに実在しない予定を
-作ってしまうため。
-
-## 注意が必要な箇所
-
-unstable_cache の内部では cookies() を読めないため、本棚一覧の取得は
-RLS を迂回する管理者クライアントを使っている。RLS の保護が外れ userId の
-正しさだけが唯一の防壁になるため、キーとタグの生成を純粋関数へ集約して
-テストで固定し、クエリの user_id 絞り込みとあわせて多重に守っている。
-詳細は設計書 8.1 章。
+「ソードアート・オンライン」等のライトノベル作品を検索し、
+レスポンスの booksGenreId を確認した。
 
 ## 検証
 
-- typecheck / lint / test / build すべてエラーなし
-- 設計書13章の受け入れ基準を手動確認済み（別アカウントでの分離確認を含む）
-
-## マージ後に必要な作業
-
-なし（0006 は適用済み）。
-
-## ドキュメント
-
-- 設計書: docs/superpowers/specs/2026-09-10-rakuten-api-design.md
-- 実装計画: docs/superpowers/plans/2026-09-10-rakuten-api.md
+typecheck / lint / test / build すべてエラーなし。
+検索画面でライトノベル作品の分類が正しく推定されることを確認済み。
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
 
-- [ ] **Step 7: 音声案内を鳴らして人間へ承認を求める**
+- [ ] **Step 6: 受け入れ結果を報告する**
+
+設計書13章の受け入れ基準13項目について、合格・不合格を一覧で報告する。
+不合格があれば原因と対応案を添える。
 
 ```bash
-say -v Kyoko -r 200 "実装が完了しました。プルリクエストの承認をお願いします。"
+say -v Kyoko -r 200 "受け入れ確認が完了しました。結果をご確認ください。"
 ```
-
-マージは人間の承認を得てから行う（CLAUDE.md 3章）。
