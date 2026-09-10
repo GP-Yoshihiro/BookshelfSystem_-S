@@ -32,8 +32,28 @@ export async function updateSession(
   });
 
   // getUser() を呼ぶことでトークンの検証とリフレッシュが行われる。
+  // getSession() は Cookie の内容を検証せずに返すため保護の判断には使わない。
   // 取得したユーザー情報はここではログ出力しない。
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+  const isAuthRoute = pathname === '/login' || pathname === '/signup';
+
+  if (user === null && !isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  if (user !== null && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
 
   return response;
 }
