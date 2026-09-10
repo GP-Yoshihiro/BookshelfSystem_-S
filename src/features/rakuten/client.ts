@@ -83,7 +83,14 @@ export async function searchBooksOrThrow(params: {
     throw new Error(`RAKUTEN_REQUEST_FAILED_${response.status}`);
   }
 
-  const body: unknown = await response.json();
+  let body: unknown;
+  try {
+    // JSON パース失敗時に応答本文の断片が例外メッセージへ漏れるため、
+    // 固定の識別子のみを持つ例外へ丸める
+    body = await response.json();
+  } catch {
+    throw new Error('RAKUTEN_INVALID_JSON');
+  }
   if (typeof body !== 'object' || body === null) {
     throw new Error('RAKUTEN_UNEXPECTED_BODY');
   }
