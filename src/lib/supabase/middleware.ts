@@ -4,6 +4,27 @@ import { getPublicEnv } from '@/lib/env';
 import type { Database } from '@/types/database';
 
 /**
+ * `from` に設定された Cookie をすべて `to` へコピーして返す。
+ *
+ * なぜ必要か: `getUser()` の呼び出し中にアクセストークンのリフレッシュが起きると、
+ * `setAll` コールバックはリフレッシュ後の Cookie を新しい `NextResponse` (`response`)
+ * へ書き込む。しかしリダイレクト時は `NextResponse.redirect(url)` で別のレスポンス
+ * オブジェクトを新規生成するため、何もしなければこの Cookie が引き継がれない。
+ * その結果、古いトークンだけがブラウザに残り、リフレッシュトークンのローテーション
+ * によって無効化され、ユーザーが突然ログアウトさせられてしまう。これを防ぐため、
+ * リダイレクト用レスポンスを生成するたびに本関数で Cookie を明示的に引き継ぐ。
+ */
+export function copySessionCookies(
+  from: NextResponse,
+  to: NextResponse,
+): NextResponse {
+  for (const cookie of from.cookies.getAll()) {
+    to.cookies.set(cookie);
+  }
+  return to;
+}
+
+/**
  * リクエストごとに Supabase のセッションを更新し、Cookie をレスポンスへ反映する。
  * middleware.ts から呼び出す。
  */
@@ -45,14 +66,17 @@ export async function updateSession(
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.search = '';
-    return NextResponse.redirect(url);
+    // リフレッシュ後の Cookie を引き継がないとサイレントなログアウトを招くため、
+    // 新規生成する redirect レスポンスへ明示的にコピーする。
+    return copySessionCookies(response, NextResponse.redirect(url));
   }
 
   if (user !== null && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     url.search = '';
-    return NextResponse.redirect(url);
+    // 同上: リフレッシュ後の Cookie を引き継ぐ。
+    return copySessionCookies(response, NextResponse.redirect(url));
   }
 
   return response;
