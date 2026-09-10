@@ -13,7 +13,10 @@ export interface AuthFormState {
   errorMessage: string;
 }
 
-export const AUTH_INITIAL_STATE: AuthFormState = { errorMessage: '' };
+// 'use server' ファイルの全エクスポートは Server Reference として扱われるため、
+// 値のエクスポート（AUTH_INITIAL_STATE）はここに置けない。
+// 型 (AuthFormState) はコンパイル時に消去されるため問題ないが、
+// 値は ./state.ts に分離し、そちらから import すること。
 
 /** FormData から文字列を取り出す。未入力・型違いは空文字とする */
 function readString(formData: FormData, key: string): string {
