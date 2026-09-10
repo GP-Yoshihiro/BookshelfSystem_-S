@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { signOutAction } from '@/features/auth/actions';
 import { ReauthProvider } from '@/features/auth/ReauthProvider';
 import { ReauthDialog } from '@/features/auth/ReauthDialog';
+import { getCurrentUserRole } from '@/features/auth/profile';
 
 export default async function AppLayout({
   children,
@@ -21,6 +22,10 @@ export default async function AppLayout({
     redirect('/login');
   }
 
+  // 招待コードの発行は管理者のみ。一般ユーザーには導線自体を出さない。
+  // ただしこれは導線の話であり、権限そのものは DB 側で担保している。
+  const role = await getCurrentUserRole();
+
   return (
     <ReauthProvider email={user.email ?? ''}>
       <ReauthDialog />
@@ -30,9 +35,11 @@ export default async function AppLayout({
             Bookshelf
           </Link>
           <nav className="flex items-center gap-4 text-sm text-wood-100">
-            <Link href="/settings/invites" className="hover:underline">
-              招待コード
-            </Link>
+            {role === 'admin' && (
+              <Link href="/settings/invites" className="hover:underline">
+                招待コード
+              </Link>
+            )}
             <form action={signOutAction}>
               <button type="submit" className="hover:underline">
                 ログアウト

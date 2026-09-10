@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { GenerateInviteButton } from '@/features/invites/GenerateInviteButton';
 import { InviteCodeList } from '@/features/invites/InviteCodeList';
+import { getCurrentUserRole } from '@/features/auth/profile';
 
 export const metadata: Metadata = { title: '招待コード | Bookshelf' };
 
@@ -10,6 +11,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function InvitesPage() {
   const supabase = await createClient();
+
+  // 招待コードを発行できるのは管理者のみ。一般ユーザーには発行 UI を出さない。
+  // URL を直接叩かれても、DB 側の generate_invite_code が管理者チェックで拒否する。
+  const role = await getCurrentUserRole();
+  const isAdmin = role === 'admin';
 
   // RLS invite_codes_select_own により、自分が発行したコードのみ取得される
   const { data, error } = await supabase
@@ -29,7 +35,14 @@ export default async function InvitesPage() {
         コードの秘匿そのものは保証しません。他人のコードは表示されません。
       </p>
 
-      <GenerateInviteButton />
+      {isAdmin ? (
+        <GenerateInviteButton />
+      ) : (
+        <p role="status" className="rounded bg-wood-800 p-3 text-sm text-wood-100">
+          招待コードを発行できるのは管理者のみです。招待が必要な場合は管理者へ
+          ご依頼ください。
+        </p>
+      )}
 
       {error !== null && (
         <p role="alert" className="text-sm text-red-300">

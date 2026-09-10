@@ -15,6 +15,20 @@ export interface InviteActionState {
 // 値は ./state.ts に分離し、そちらから import すること。
 
 const GENERIC_ERROR = '処理に失敗しました。時間をおいて再度お試しください。';
+const PRIVILEGE_ERROR = '招待コードを発行する権限がありません。';
+
+/**
+ * 権限不足のエラーかを判定する。
+ * generate_invite_code は管理者以外に対し errcode 42501
+ * (insufficient_privilege) で例外を送出する。
+ * エラーオブジェクトそのものは出力せず、判定にのみ用いる。
+ */
+function isPrivilegeError(error: unknown): boolean {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    return (error as { code: unknown }).code === '42501';
+  }
+  return false;
+}
 
 function readExpiryOption(formData: FormData): InviteExpiryOption {
   const value = formData.get('expiry');
@@ -36,8 +50,12 @@ export async function generateInviteCodeAction(
   });
 
   if (error) {
-    // エラーオブジェクトは出力しない（CLAUDE.md 2章）
-    return { errorMessage: GENERIC_ERROR, successMessage: '' };
+    // エラーオブジェクトは出力しない（CLAUDE.md 2章）。
+    // 管理者以外が RPC を直接叩いた場合はここで弾かれる。
+    return {
+      errorMessage: isPrivilegeError(error) ? PRIVILEGE_ERROR : GENERIC_ERROR,
+      successMessage: '',
+    };
   }
 
   revalidatePath('/settings/invites');

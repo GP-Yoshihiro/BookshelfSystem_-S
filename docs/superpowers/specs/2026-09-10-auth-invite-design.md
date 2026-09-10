@@ -171,6 +171,18 @@ signUp を呼ぶ前に別途検証する必要がある。
 
 ### 5.5 招待コードの発行
 
+**招待コードを発行できるのは管理者（1人目のユーザー）のみとする。**
+
+当初の実装は `generate_invite_code` を `authenticated` 全員に開放しており、
+一般ユーザーも自由に発行できた。これでは招待制の統制が効かないため、
+関数の中で `profiles.role = 'admin'` を検証し、満たさない場合は
+`insufficient_privilege` で拒否する（マイグレーション `0005`）。
+
+UI 側でもヘッダーのリンクと発行ボタンを管理者にのみ表示するが、これは導線の
+話に過ぎない。`/rest/v1/rpc/generate_invite_code` を直接叩けば迂回できるため、
+権限判定は関数の中で行うことが本丸となる。
+
+
 `generateInviteCodeAction(expiresInDays)` が `rpc('generate_invite_code', { p_expires_in_days })`
 を呼ぶ。UI では 無期限 / 1日 / 7日 / 30日 を選択でき、**既定は 7 日**。
 発行後は `revalidatePath('/settings/invites')` で一覧を更新し、`speakComplete()` を鳴らす。
