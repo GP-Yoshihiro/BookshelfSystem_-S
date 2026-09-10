@@ -3,6 +3,8 @@
  * supabase/migrations/0001_initial_schema.sql の変更時は本ファイルも更新すること。
  */
 
+import type { InviteCodeStatus } from '@/features/auth/messages';
+
 export type UserRole = 'admin' | 'user';
 
 export type BookCategory =
@@ -138,6 +140,10 @@ export interface Database {
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      validate_invite_code: {
+        Args: { p_code: string };
+        Returns: InviteCodeStatus;
       };
     };
     Enums: {
