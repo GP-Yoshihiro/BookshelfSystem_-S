@@ -28,16 +28,22 @@ export const BOOK_CATEGORY_LABELS: Readonly<Record<BookCategory, string>> = {
   comic: 'コミック',
 };
 
-export interface Profile {
+// NOTE: Row/Insert/Update は Supabase 側の GenericTable 制約
+// （Record<string, unknown> への構造的代入）を満たす必要があるため、
+// `interface` ではなく `type` で定義すること。
+// `interface` のまま Tables に渡すと Schema 全体の型推論が崩れ、
+// supabase.rpc() に引数を渡す呼び出しが軒並み型エラーになる
+// （引数なしの呼び出しでは表面化しないため見落としやすい）。
+export type Profile = {
   id: string;
   display_name: string;
   role: UserRole;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface InviteCode {
+export type InviteCode = {
   id: string;
   code: string;
   created_by: string;
@@ -46,9 +52,9 @@ export interface InviteCode {
   used_at: string | null;
   expires_at: string | null;
   created_at: string;
-}
+};
 
-export interface Book {
+export type Book = {
   id: string;
   user_id: string;
   isbn: string;
@@ -67,9 +73,9 @@ export interface Book {
   item_url: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface CalendarReservation {
+export type CalendarReservation = {
   id: string;
   user_id: string;
   book_id: string;
@@ -77,7 +83,7 @@ export interface CalendarReservation {
   scheduled_release_date: string;
   note: string | null;
   created_at: string;
-}
+};
 
 /** DB のデフォルト値・トリガで自動採番される列 */
 type GeneratedColumns = 'id' | 'created_at' | 'updated_at';
