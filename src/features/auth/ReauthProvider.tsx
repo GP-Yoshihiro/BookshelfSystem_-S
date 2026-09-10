@@ -55,32 +55,37 @@ export function ReauthProvider({
   const pendingActionRef = useRef<PendingAction | null>(null);
 
   /**
-   * 保留中だった（または即時実行される） action を実行する共通ヘルパー。
+   * 保留中だった（または即時実行される）action を実行する共通ヘルパー。
    *
-   * action が reject した場合（同期的に throw した場合も含む）、ここでは
-   * unhandled rejection / 未捕捉例外を防ぐためだけに catch し、何もしない。
-   * この時点では再認証ダイアログは既に閉じている（または最初から開いていない）
-   * ため、失敗内容を Context の errorMessage に入れても利用者には見えない。
-   * エラーメッセージの表示やリトライ等、実際のエラー処理は requireReauth に
-   * 渡す action 自身の責務とする（呼び出し側が action 内で try/catch する）。
+   * 戻り値の Promise は reject しない。action が同期的に throw した場合も、
+   * 返した Promise が reject した場合も、ここで catch して常に resolve する
+   * Promise を返す。これにより:
+   *   - 即時実行パス（requireReauth 内）は呼び出し元（クリックハンドラ等）が
+   *     await できないため、投げっぱなしで呼んでも unhandled rejection には
+   *     ならない。
+   *   - 保留経由パス（submitPassword 内）は、この Promise を await するだけで
+   *     安全に action の完了を待てる（submitPassword 自体が reject すること
+   *     はない）。
+   * どちらのパスでも、action の失敗（エラー表示・リトライ等）をどう扱うかは
+   * requireReauth に渡す action 自身の責務であり、ここでは一切処理しない
+   * （Context の errorMessage にも書き込まない）。
    */
-  const runAction = useCallback((action: PendingAction) => {
+  const runAction = useCallback(async (action: PendingAction) => {
     try {
-      const result = action();
-      if (result instanceof Promise) {
-        result.catch(() => {
-          // 呼び出し側の責務: エラー処理は action 内で行うこと。
-        });
-      }
+      await action();
     } catch {
-      // 同期的に throw された場合も同様に、ここでは何もしない。
+      // 呼び出し側の責務: エラー処理は action 内で行うこと。ここでは
+      // unhandled rejection / 未捕捉例外を防ぐためだけに握りつぶす。
     }
   }, []);
 
   const requireReauth = useCallback(
     (action: PendingAction) => {
       if (isReauthValid(validUntilRef.current, Date.now())) {
-        runAction(action);
+        // 呼び出し元はクリックハンドラ等で await できないため、ここでは
+        // 投げっぱなしにする。runAction は reject しない Promise を返すため
+        // unhandled rejection は発生しない。
+        void runAction(action);
         return;
       }
       pendingActionRef.current = action;
@@ -90,6 +95,15 @@ export function ReauthProvider({
     [runAction],
   );
 
+  /**
+   * パスワードを検証し、成功すれば保留中の action を実行する。
+   *
+   * 待機セマンティクス: 保留中の action がある場合、この関数はその action の
+   * 完了（成功・失敗いずれも）まで待ってから resolve する。呼び出し側が
+   * `await submitPassword(...)` した直後に完了フィードバック（音声案内等）を
+   * 出す用途があるため。action 自身が reject しても runAction が握りつぶす
+   * ため submitPassword が reject することはない。
+   */
   const submitPassword = useCallback(
     async (password: string) => {
       setIsVerifying(true);
@@ -108,10 +122,15 @@ export function ReauthProvider({
       const action = pendingActionRef.current;
       pendingActionRef.current = null;
       if (action) {
-        // 即時実行パス（requireReauth 内の runAction）と挙動を揃えるため、
-        // ここでも await せず runAction 経由で実行する。エラー処理は
-        // 呼び出し側の action 自身が担う。
-        runAction(action);
+        // 待機セマンティクス: submitPassword は保留中だった action の完了
+        // （成功・失敗を問わず）まで待ってから resolve する。ReauthDialog が
+        // `await submitPassword(...)` した直後に完了フィードバック（音声
+        // 案内など）を出す設計のため、action の完了を保証する必要がある。
+        // runAction は reject しない Promise を返すので、ここで await しても
+        // submitPassword 自体が reject することはない。action 自身の失敗を
+        // どう扱うか（エラー表示・リトライ等）は、即時実行パスと同様に
+        // action 自身の責務であり、ここでは関知しない。
+        await runAction(action);
       }
     },
     [email, runAction],

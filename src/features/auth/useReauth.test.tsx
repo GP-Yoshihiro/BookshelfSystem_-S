@@ -91,7 +91,29 @@ describe('useReauth', () => {
     await waitFor(() => expect(secondAction).toHaveBeenCalledTimes(1));
   });
 
-  it('即時実行パスで action が reject しても例外が外へ漏れない', async () => {
+  it('即時実行パスで action が reject しても unhandledRejection が発生しない', async () => {
+    // このテストは process の 'unhandledRejection' イベントを実際に監視する。
+    // `expect(() => act(...)).not.toThrow()` は action の reject が同期的な
+    // throw ではない限り常に成立してしまい、`void action()` のような
+    // unhandled rejection を生むバグを検知できない。そのため、ここでは
+    // 実際に Node のグローバルな unhandledRejection ハンドラを一時的に登録し、
+    // マイクロタスク・マクロタスクをフラッシュした上でハンドラが呼ばれて
+    // いないことを確認する。
+    //
+    // 注意: ここでは `vi.fn(() => Promise.reject(...))` のように action を
+    // vi.fn() でラップしてはいけない。Vitest のモック関数は
+    // `mock.settledResults` 等の内部トラッキングのために、返り値の
+    // Promise に対して自前で .then/.catch を仕掛ける。そのため
+    // vi.fn() でラップした時点で Node から見て「ハンドラ済み」の
+    // Promise になってしまい、本物のバグが残っていても
+    // unhandledRejection が一切発火せずテストが常に PASS してしまう
+    // （このこと自体を実験で確認済み）。呼び出し回数はプレーンな
+    // クロージャの手動カウンタで数える。
+    //
+    // fake timers 下では setTimeout 等の実行タイミングが実時間と一致しない
+    // ため、このテストの間だけ real timers に切り替える。
+    vi.useRealTimers();
+
     mockedVerify.mockResolvedValue(true);
     const { result } = renderHook(() => useReauth(), { wrapper });
 
@@ -100,19 +122,87 @@ describe('useReauth', () => {
       await result.current.submitPassword('correct-password');
     });
 
-    // 検証成功から5分以内 = 即時実行パス。reject する action を渡しても
-    // requireReauth の呼び出し自体は例外を投げず、unhandled rejection にも
-    // ならないことを確認する。
-    const rejectingAction = vi.fn(() =>
-      Promise.reject(new Error('クリップボードへの書き込みに失敗しました')),
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejections.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandledRejection);
+
+    try {
+      // 検証成功から5分以内 = 即時実行パス。vi.fn() でラップせず、
+      // プレーンな関数 + 手動カウンタで呼び出しを検知する。
+      let callCount = 0;
+      const rejectingAction = () => {
+        callCount += 1;
+        return Promise.reject(
+          new Error('クリップボードへの書き込みに失敗しました'),
+        );
+      };
+
+      act(() => {
+        result.current.requireReauth(rejectingAction);
+      });
+
+      // Node は「reject した Promise に、同一 tick 内でハンドラが付かな
+      // かった」場合に unhandledRejection を発火する。マイクロタスクと
+      // マクロタスクの両方を複数回フラッシュし、発火する機会を十分に与える。
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(callCount).toBe(1);
+      expect(result.current.isDialogOpen).toBe(false);
+      expect(unhandledRejections).toHaveLength(0);
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+    }
+  });
+
+  it('submitPassword は保留中の action の完了まで待ってから resolve する', async () => {
+    // 保留経由パス（submitPassword 内）は action の完了を await する契約に
+    // なっている。action がまだ完了していない間は submitPassword も
+    // resolve していないことを確認することで、この待機セマンティクスを
+    // 検証する。
+    mockedVerify.mockResolvedValue(true);
+    const { result } = renderHook(() => useReauth(), { wrapper });
+
+    let resolveAction: () => void = () => {};
+    const action = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveAction = resolve;
+        }),
     );
 
-    expect(() => {
-      act(() => result.current.requireReauth(rejectingAction));
-    }).not.toThrow();
+    act(() => result.current.requireReauth(action));
 
-    await waitFor(() => expect(rejectingAction).toHaveBeenCalledTimes(1));
-    expect(result.current.isDialogOpen).toBe(false);
+    let settled = false;
+    let submitPasswordPromise!: Promise<void>;
+
+    await act(async () => {
+      submitPasswordPromise = result.current
+        .submitPassword('correct-password')
+        .then(() => {
+          settled = true;
+        });
+      // verifyPassword の resolve〜action 呼び出しまでのマイクロタスクを
+      // 進める。
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(action).toHaveBeenCalledTimes(1);
+    // action がまだ完了していないので、submitPassword もまだ resolve して
+    // いない。
+    expect(settled).toBe(false);
+
+    await act(async () => {
+      resolveAction();
+      await submitPasswordPromise;
+    });
+
+    expect(settled).toBe(true);
   });
 
   it('検証成功から5分を過ぎると再びダイアログを開く', async () => {
