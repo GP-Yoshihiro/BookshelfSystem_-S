@@ -8,7 +8,15 @@ import { INVITE_INITIAL_STATE } from './state';
 import { formatExpiry } from './format';
 import type { InviteCode } from '@/types/database';
 
-/** コードは既定で伏せ字にし、再認証を経た場合のみ表示する */
+/**
+ * コードを伏せ字にする。
+ *
+ * これは描画時の処理に過ぎない。Server Component から props として渡された
+ * 時点で、コードの平文は RSC ペイロードとしてブラウザへ届いている。
+ * 再認証は「離席した画面での覗き見」を防ぐ UI ガードであり、
+ * DevTools を開ける相手からコードを秘匿するものではない。
+ * 詳細と、この判断を見直すべき条件は設計書 8-2 章を参照。
+ */
 function maskCode(code: string): string {
   return '•'.repeat(code.length);
 }

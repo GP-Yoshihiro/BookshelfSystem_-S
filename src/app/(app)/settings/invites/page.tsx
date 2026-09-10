@@ -24,8 +24,9 @@ export default async function InvitesPage() {
       <h1 className="text-xl font-bold text-wood-50">招待コード</h1>
 
       <p className="text-sm text-wood-200">
-        発行・表示・コピーの操作には、セキュリティ保護のためパスワードの再入力が
-        必要です。一度確認すると5分間は再入力を求められません。
+        発行・表示・コピーの操作には、パスワードの再入力が必要です。一度確認すると
+        5分間は再入力を求められません。離席時の覗き見を防ぐための確認であり、
+        コードの秘匿そのものは保証しません。他人のコードは表示されません。
       </p>
 
       <GenerateInviteButton />
