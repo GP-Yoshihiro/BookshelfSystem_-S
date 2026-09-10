@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { signOutAction } from '@/features/auth/actions';
 import { ReauthProvider } from '@/features/auth/ReauthProvider';
+import { ReauthDialog } from '@/features/auth/ReauthDialog';
 
 export default async function AppLayout({
   children,
@@ -22,6 +23,7 @@ export default async function AppLayout({
 
   return (
     <ReauthProvider email={user.email ?? ''}>
+      <ReauthDialog />
       <div className="min-h-screen bg-wood-900 bg-wood-grain">
         <header className="flex items-center justify-between bg-wood-800 px-4 py-3 shadow-shelf">
           <Link href="/" className="text-lg font-bold text-wood-50">
