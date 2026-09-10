@@ -54,15 +54,41 @@ export function ReauthProvider({
   const validUntilRef = useRef<number | null>(null);
   const pendingActionRef = useRef<PendingAction | null>(null);
 
-  const requireReauth = useCallback((action: PendingAction) => {
-    if (isReauthValid(validUntilRef.current, Date.now())) {
-      void action();
-      return;
+  /**
+   * 保留中だった（または即時実行される） action を実行する共通ヘルパー。
+   *
+   * action が reject した場合（同期的に throw した場合も含む）、ここでは
+   * unhandled rejection / 未捕捉例外を防ぐためだけに catch し、何もしない。
+   * この時点では再認証ダイアログは既に閉じている（または最初から開いていない）
+   * ため、失敗内容を Context の errorMessage に入れても利用者には見えない。
+   * エラーメッセージの表示やリトライ等、実際のエラー処理は requireReauth に
+   * 渡す action 自身の責務とする（呼び出し側が action 内で try/catch する）。
+   */
+  const runAction = useCallback((action: PendingAction) => {
+    try {
+      const result = action();
+      if (result instanceof Promise) {
+        result.catch(() => {
+          // 呼び出し側の責務: エラー処理は action 内で行うこと。
+        });
+      }
+    } catch {
+      // 同期的に throw された場合も同様に、ここでは何もしない。
     }
-    pendingActionRef.current = action;
-    setErrorMessage('');
-    setIsDialogOpen(true);
   }, []);
+
+  const requireReauth = useCallback(
+    (action: PendingAction) => {
+      if (isReauthValid(validUntilRef.current, Date.now())) {
+        runAction(action);
+        return;
+      }
+      pendingActionRef.current = action;
+      setErrorMessage('');
+      setIsDialogOpen(true);
+    },
+    [runAction],
+  );
 
   const submitPassword = useCallback(
     async (password: string) => {
@@ -82,10 +108,13 @@ export function ReauthProvider({
       const action = pendingActionRef.current;
       pendingActionRef.current = null;
       if (action) {
-        await action();
+        // 即時実行パス（requireReauth 内の runAction）と挙動を揃えるため、
+        // ここでも await せず runAction 経由で実行する。エラー処理は
+        // 呼び出し側の action 自身が担う。
+        runAction(action);
       }
     },
-    [email],
+    [email, runAction],
   );
 
   const cancel = useCallback(() => {

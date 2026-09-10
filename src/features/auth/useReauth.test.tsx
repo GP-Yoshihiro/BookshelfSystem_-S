@@ -91,6 +91,30 @@ describe('useReauth', () => {
     await waitFor(() => expect(secondAction).toHaveBeenCalledTimes(1));
   });
 
+  it('即時実行パスで action が reject しても例外が外へ漏れない', async () => {
+    mockedVerify.mockResolvedValue(true);
+    const { result } = renderHook(() => useReauth(), { wrapper });
+
+    act(() => result.current.requireReauth(vi.fn()));
+    await act(async () => {
+      await result.current.submitPassword('correct-password');
+    });
+
+    // 検証成功から5分以内 = 即時実行パス。reject する action を渡しても
+    // requireReauth の呼び出し自体は例外を投げず、unhandled rejection にも
+    // ならないことを確認する。
+    const rejectingAction = vi.fn(() =>
+      Promise.reject(new Error('クリップボードへの書き込みに失敗しました')),
+    );
+
+    expect(() => {
+      act(() => result.current.requireReauth(rejectingAction));
+    }).not.toThrow();
+
+    await waitFor(() => expect(rejectingAction).toHaveBeenCalledTimes(1));
+    expect(result.current.isDialogOpen).toBe(false);
+  });
+
   it('検証成功から5分を過ぎると再びダイアログを開く', async () => {
     mockedVerify.mockResolvedValue(true);
     const { result } = renderHook(() => useReauth(), { wrapper });
