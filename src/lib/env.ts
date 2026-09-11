@@ -29,20 +29,43 @@ export function getPublicEnv(): {
   };
 }
 
-/** サーバーサイド専用の設定。クライアントから import してはならない */
-export function getServerEnv(): {
-  supabaseServiceRoleKey: string;
-  rakutenAppId: string;
-  rakutenAffiliateId: string | undefined;
-} {
-  return {
-    supabaseServiceRoleKey: requireEnv(
-      'SUPABASE_SERVICE_ROLE_KEY',
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-    ),
-    rakutenAppId: requireEnv('RAKUTEN_APP_ID', process.env.RAKUTEN_APP_ID),
-    rakutenAffiliateId: process.env.RAKUTEN_AFFILIATE_ID || undefined,
-  };
+/**
+ * RLS を迂回する管理者クライアント用のキー。
+ * クライアントから import してはならない。
+ *
+ * 用途ごとに必要な変数だけを要求する。以前はサーバー用の変数をひとまとめに
+ * 要求していたため、Supabase の管理者クライアントを作るだけで楽天の
+ * アプリIDまで必須になり、キー未取得の状態でデプロイすると落ちていた。
+ */
+export function getSupabaseServiceRoleKey(): string {
+  return requireEnv(
+    'SUPABASE_SERVICE_ROLE_KEY',
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+}
+
+/**
+ * 楽天ウェブサービスのアプリID。
+ * 未設定でもアプリは動作する必要があるため、例外を投げず undefined を返す。
+ * 設定の有無の判定には features/rakuten/client.ts の
+ * isRakutenConfigured() を使うこと。
+ */
+export function getRakutenAppId(): string | undefined {
+  return process.env.RAKUTEN_APP_ID || undefined;
+}
+
+/**
+ * 楽天ウェブサービスのアクセスキー。
+ * 2026年の仕様変更で applicationId と対で必須になった。
+ * アプリIDと同様、未設定でもアプリは動作する必要があるため例外を投げない。
+ */
+export function getRakutenAccessKey(): string | undefined {
+  return process.env.RAKUTEN_ACCESS_KEY || undefined;
+}
+
+/** 楽天アフィリエイトID。任意項目のため未設定を許容する */
+export function getRakutenAffiliateId(): string | undefined {
+  return process.env.RAKUTEN_AFFILIATE_ID || undefined;
 }
 
 export function getSiteUrl(): string {

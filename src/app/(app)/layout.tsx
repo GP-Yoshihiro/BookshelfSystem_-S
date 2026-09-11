@@ -35,6 +35,9 @@ export default async function AppLayout({
             Bookshelf
           </Link>
           <nav className="flex items-center gap-4 text-sm text-wood-100">
+            <Link href="/search" className="hover:underline">
+              本を探す
+            </Link>
             {role === 'admin' && (
               <Link href="/settings/invites" className="hover:underline">
                 招待コード
