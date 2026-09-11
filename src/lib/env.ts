@@ -54,6 +54,15 @@ export function getRakutenAppId(): string | undefined {
   return process.env.RAKUTEN_APP_ID || undefined;
 }
 
+/**
+ * 楽天ウェブサービスのアクセスキー。
+ * 2026年の仕様変更で applicationId と対で必須になった。
+ * アプリIDと同様、未設定でもアプリは動作する必要があるため例外を投げない。
+ */
+export function getRakutenAccessKey(): string | undefined {
+  return process.env.RAKUTEN_ACCESS_KEY || undefined;
+}
+
 /** 楽天アフィリエイトID。任意項目のため未設定を許容する */
 export function getRakutenAffiliateId(): string | undefined {
   return process.env.RAKUTEN_AFFILIATE_ID || undefined;

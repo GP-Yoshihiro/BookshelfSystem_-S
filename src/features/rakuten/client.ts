@@ -18,6 +18,7 @@ const HITS_PER_PAGE = 30;
  * これを防ぐため、既知のプレースホルダは明示的に未設定として扱う。
  */
 const PLACEHOLDER_APP_ID = 'your-rakuten-application-id';
+const PLACEHOLDER_ACCESS_KEY = 'your-rakuten-access-key';
 
 /**
  * 楽天ウェブサービスのアプリIDが設定されているか。
@@ -25,13 +26,26 @@ const PLACEHOLDER_APP_ID = 'your-rakuten-application-id';
  * 環境変数を必須として読む関数は未設定だと例外を投げるため、判定には使えない。
  * ここでは値そのものを返さず、設定の有無だけを返す。
  */
-export function isRakutenConfigured(): boolean {
-  const appId = process.env.RAKUTEN_APP_ID;
-  if (typeof appId !== 'string') {
+function isUsableValue(value: unknown, placeholder: string): boolean {
+  if (typeof value !== 'string') {
     return false;
   }
-  const trimmed = appId.trim();
-  return trimmed.length > 0 && trimmed !== PLACEHOLDER_APP_ID;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed !== placeholder;
+}
+
+/**
+ * 楽天ウェブサービスの認証情報が揃っているか。
+ *
+ * 2026年の仕様変更により applicationId と accessKey が対で必須になった。
+ * 片方だけでは API が wrong_parameter を返すため、両方揃って初めて
+ * 「設定済み」とみなす。
+ */
+export function isRakutenConfigured(): boolean {
+  return (
+    isUsableValue(process.env.RAKUTEN_APP_ID, PLACEHOLDER_APP_ID) &&
+    isUsableValue(process.env.RAKUTEN_ACCESS_KEY, PLACEHOLDER_ACCESS_KEY)
+  );
 }
 
 /** レスポンスの値を安全に文字列へ寄せる。欠けている項目は空文字にする */
@@ -76,12 +90,17 @@ export async function searchBooksOrThrow(params: {
   page: number;
 }): Promise<RakutenSearchSuccess> {
   const appId = process.env.RAKUTEN_APP_ID ?? '';
-  if (appId.length === 0) {
-    throw new Error('RAKUTEN_APP_ID_NOT_CONFIGURED');
+  const accessKey = process.env.RAKUTEN_ACCESS_KEY ?? '';
+  if (appId.length === 0 || accessKey.length === 0) {
+    throw new Error('RAKUTEN_CREDENTIALS_NOT_CONFIGURED');
   }
 
   const url = new URL(ENDPOINT);
   url.searchParams.set('applicationId', appId);
+  // 2026年の仕様変更で必須になった。ヘッダーでも渡せるがヘッダー名が
+  // 公開仕様に明記されていないため、確実なクエリパラメータで送る。
+  // URL は例外・ログのいずれにも出力しないため、値が漏れる経路はない。
+  url.searchParams.set('accessKey', accessKey);
   url.searchParams.set('formatVersion', '2');
   url.searchParams.set('keyword', params.keyword);
   url.searchParams.set('hits', String(HITS_PER_PAGE));
