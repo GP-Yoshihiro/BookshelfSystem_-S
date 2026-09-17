@@ -21,10 +21,9 @@ const PLACEHOLDER_APP_ID = 'your-rakuten-application-id';
 const PLACEHOLDER_ACCESS_KEY = 'your-rakuten-access-key';
 
 /**
- * 楽天ウェブサービスのアプリIDが設定されているか。
- *
- * 環境変数を必須として読む関数は未設定だと例外を投げるため、判定には使えない。
- * ここでは値そのものを返さず、設定の有無だけを返す。
+ * 環境変数の値が実際に使えるか。
+ * 未設定・空文字・プレースホルダのままのいずれでもない場合に true を返す。
+ * 値そのものは返さない。
  */
 function isUsableValue(value: unknown, placeholder: string): boolean {
   if (typeof value !== 'string') {
@@ -89,11 +88,14 @@ export async function searchBooksOrThrow(params: {
   keyword: string;
   page: number;
 }): Promise<RakutenSearchSuccess> {
-  const appId = process.env.RAKUTEN_APP_ID ?? '';
-  const accessKey = process.env.RAKUTEN_ACCESS_KEY ?? '';
-  if (appId.length === 0 || accessKey.length === 0) {
+  // 判定は isRakutenConfigured と同じ基準を使う。長さだけを見ると
+  // プレースホルダのまま楽天へリクエストしてしまい、原因の分かりにくい
+  // 「検索に失敗しました」だけが表示されることになる。
+  if (!isRakutenConfigured()) {
     throw new Error('RAKUTEN_CREDENTIALS_NOT_CONFIGURED');
   }
+  const appId = (process.env.RAKUTEN_APP_ID ?? '').trim();
+  const accessKey = (process.env.RAKUTEN_ACCESS_KEY ?? '').trim();
 
   const url = new URL(ENDPOINT);
   url.searchParams.set('applicationId', appId);
