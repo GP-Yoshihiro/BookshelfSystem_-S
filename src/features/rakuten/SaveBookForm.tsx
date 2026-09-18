@@ -136,15 +136,6 @@ export function SaveBookForm({
         <button
           type="submit"
           name="isPurchased"
-          value="false"
-          disabled={isPending}
-          className="rounded border border-wood-400 px-3 py-1 text-sm text-wood-100 disabled:opacity-60"
-        >
-          本棚に追加
-        </button>
-        <button
-          type="submit"
-          name="isPurchased"
           value="true"
           disabled={isPending}
           className="rounded bg-wood-600 px-3 py-1 text-sm font-medium text-wood-50 hover:bg-wood-700 disabled:opacity-60"
