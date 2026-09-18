@@ -46,9 +46,16 @@ describe('CATEGORY_SORT_ORDER', () => {
 
 describe('sortBooks', () => {
   it('入力の配列を書き換えない', () => {
-    const books = [book({ id: 'b' }), book({ id: 'a' })];
+    // タイトルを別の値にする。同じ値だと localeCompare が 0 を返し、
+    // 安定ソートで順序が変わらないため、破壊的な実装でも検知できない
+    const books = [book({ id: 'ro', title: 'ろ' }), book({ id: 'a', title: 'あ' })];
     const before = books.map((b) => b.id);
-    sortBooks(books, 'title', 'asc');
+
+    const sorted = sortBooks(books, 'title', 'asc');
+
+    // ソート結果は並び替わっている（テスト自体が空振りでないことの確認）
+    expect(sorted.map((b) => b.id)).toEqual(['a', 'ro']);
+    // 元の配列は変わっていない
     expect(books.map((b) => b.id)).toEqual(before);
   });
 
