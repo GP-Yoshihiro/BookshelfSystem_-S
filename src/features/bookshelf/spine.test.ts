@@ -65,9 +65,14 @@ describe('spineStyle', () => {
     expect(hues.size).toBe(series.length);
   });
 
-  it('厚みが1段階に偏らない', () => {
-    const widths = new Set(REAL_ISBNS.map((isbn) => spineStyle(isbn).widthPx));
-    expect(widths.size).toBeGreaterThanOrEqual(3);
+  it('特定の厚みに半数以上が集中しない', () => {
+    const counts = new Map<number, number>();
+    for (const isbn of REAL_ISBNS) {
+      const { widthPx } = spineStyle(isbn);
+      counts.set(widthPx, (counts.get(widthPx) ?? 0) + 1);
+    }
+    const maxCount = Math.max(...counts.values());
+    expect(maxCount / REAL_ISBNS.length).toBeLessThanOrEqual(0.5);
   });
 
   it('ISBN が空でも既定の見た目を返す', () => {

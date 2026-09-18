@@ -41,8 +41,6 @@ export function hashString(value: string): number {
  *
  * 色相と厚みでハッシュの異なるビットを使うのは、両者が相関して
  * 「同じ色の本は必ず同じ厚み」になるのを避けるため。
- * 上位ビットを使う位置は、実在する同一シリーズの ISBN 20件で
- * 分散を確かめて選んでいる。
  */
 export function spineStyle(isbn: string): SpineStyle {
   const hash = hashString(isbn);
