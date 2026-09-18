@@ -1,15 +1,22 @@
-export default function HomePage() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-        BookshelfSystem
-      </h1>
-      <p className="max-w-md text-sm text-wood-100 sm:text-base">
-        購入済み書籍の管理と発売日カレンダーを備えた本棚アプリケーションです。
-      </p>
-      <p className="text-xs text-wood-200">
-        基盤構築が完了しました。認証・本棚UI・カレンダーは後続の実装で追加されます。
-      </p>
-    </div>
-  );
+import type { Metadata } from 'next';
+import { createClient } from '@/lib/supabase/server';
+import { getUserBooks } from '@/features/books/cache';
+import { BookshelfView } from '@/features/bookshelf/BookshelfView';
+
+export const metadata: Metadata = { title: '本棚 | Bookshelf' };
+
+export const dynamic = 'force-dynamic';
+
+export default async function BookshelfPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // userId は必ず認証済みセッションから取得する。
+  // getUserBooks は RLS を迂回する管理者クライアントを使うため
+  // （工程Dの設計書 8.1 規則1）
+  const books = user === null ? [] : await getUserBooks(user.id);
+
+  return <BookshelfView books={books} />;
 }
