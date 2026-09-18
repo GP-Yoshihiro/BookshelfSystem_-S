@@ -163,23 +163,51 @@ export function BookshelfView({ books }: { books: readonly Book[] }) {
         totalCount={books.length}
       />
 
+      {/*
+        広い画面ではプレビュー用の列をあらかじめ確保し、本棚と横に並べる。
+        以前はプレビューを本棚へ絶対配置で重ねていたため、パネルの下に本が
+        並んでしまい、その本にホバーすると出てきたパネル自身が本を覆って
+        mouseleave が発火し、ちらついて操作できなかった。
+        列を常に確保することで、プレビューの開閉によって本の並びが変わることも
+        なくなり、ホバーの当たり判定と見た目が常に一致する。
+      */}
       <div
         ref={shelfAreaRef}
-        className="relative"
+        className="md:flex md:items-start md:gap-4"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <Bookshelf
-          books={visibleBooks}
-          activeId={activeId}
-          onActivate={handleActivate}
-          onHoverStart={handleHoverStart}
-          onHoverEnd={handleHoverEnd}
-        />
+        <div className="min-w-0 md:flex-1">
+          <Bookshelf
+            books={visibleBooks}
+            activeId={activeId}
+            onActivate={handleActivate}
+            onHoverStart={handleHoverStart}
+            onHoverEnd={handleHoverEnd}
+          />
 
-        {activeBook !== null && (
-          <BookPreview book={activeBook} onClose={() => setActiveId(null)} />
-        )}
+          {/*
+            狭い画面ではプレビューが画面下部へ固定表示されるため、
+            最下段の本がその裏に隠れて選べなくなる。開いている間だけ
+            下に余白を作って、最下段までスクロールできるようにする。
+
+            高さは BookPreview の max-h-[70vh] と揃える。小さいと
+            最下段の本をパネルの上まで送り出せず、隠れたままになる。
+          */}
+          {activeBook !== null && (
+            <div aria-hidden="true" className="h-[70vh] md:hidden" />
+          )}
+        </div>
+
+        <div className="md:sticky md:top-4 md:w-80 md:flex-none">
+          {activeBook !== null ? (
+            <BookPreview book={activeBook} onClose={() => setActiveId(null)} />
+          ) : (
+            <p className="hidden rounded bg-wood-800 p-4 text-sm text-wood-300 md:block">
+              本にカーソルを合わせると、表紙と概要がここに表示されます。
+            </p>
+          )}
+        </div>
       </div>
 
       {books.length > 0 && visibleBooks.length === 0 && (

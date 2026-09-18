@@ -10,8 +10,15 @@ import { BOOK_CATEGORY_LABELS, type Book } from '@/types/database';
  * 背表紙を並べる都合で表紙が見えないため、README の
  * 「概要のツールチップ」と表紙表示をここで兼ねる。
  *
- * 配置は画面幅で変える。狭い画面では画面下部のシートにする。
- * 本の近くに出すと本棚が隠れ、スライドで隣へ移る操作の邪魔になるため。
+ * 配置は画面幅で変える。
+ *
+ * 狭い画面では画面下部のシート（fixed）にする。本の近くに出すと本棚が隠れ、
+ * スライドで隣へ移る操作の邪魔になるため。
+ *
+ * 広い画面では静的配置（md:static）とし、親が確保した列の中に流し込む。
+ * 以前は本棚へ絶対配置で重ねていたが、パネルの下に本が並んでしまい、
+ * その本にホバーすると出てきたパネル自身が本を覆って mouseleave が発火し、
+ * ちらついて操作できなくなっていた。重ねない配置にすることで解消している。
  */
 export function BookPreview({
   book,
@@ -27,7 +34,7 @@ export function BookPreview({
     <aside
       role="dialog"
       aria-label={`${book.title} の概要`}
-      className="fixed inset-x-0 bottom-0 z-20 max-h-[70vh] overflow-y-auto rounded-t-lg bg-wood-50 p-4 shadow-book md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-0 md:max-h-none md:w-80 md:rounded-lg"
+      className="fixed inset-x-0 bottom-0 z-20 max-h-[70vh] overflow-y-auto rounded-t-lg bg-wood-50 p-4 shadow-book md:static md:z-auto md:max-h-none md:w-full md:rounded-lg"
     >
       <div className="flex gap-3">
         {book.cover_image_url !== null && book.cover_image_url.length > 0 && (
