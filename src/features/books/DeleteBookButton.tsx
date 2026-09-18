@@ -14,6 +14,11 @@ import { speakComplete, speakError } from '@/lib/speech';
  *
  * 詳細ページとプレビューの両方から使う。同じ確認体験を2箇所へ
  * 書き分けると、片方だけ直してしまう事故が起きるため1つにまとめている。
+ *
+ * 置かれる場所の背景が濃色（詳細ページ bg-wood-800）と淡色
+ * （プレビュー bg-wood-50）で異なるため、文字色だけに頼らず背景色を
+ * 持たせている。文字色で切り替える prop を設けると、渡し忘れた側が
+ * 読めなくなるため。
  */
 export function DeleteBookButton({
   bookId,
@@ -53,12 +58,15 @@ export function DeleteBookButton({
         <button
           type="button"
           onClick={() => setIsConfirming(true)}
-          className="text-sm text-red-300 underline"
+          className="rounded bg-red-800 px-3 py-1 text-sm font-medium text-wood-50 hover:bg-red-700"
         >
           本棚から削除
         </button>
         {state.errorMessage.length > 0 && (
-          <p role="alert" className="text-sm text-red-300">
+          <p
+            role="alert"
+            className="rounded bg-red-900 px-2 py-1 text-sm text-red-100"
+          >
             {state.errorMessage}
           </p>
         )}
