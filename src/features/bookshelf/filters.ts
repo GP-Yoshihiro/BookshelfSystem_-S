@@ -25,7 +25,6 @@ export interface BookFilters {
   categories: readonly BookCategory[];
   publishers: readonly string[];
   onlyOngoing: boolean;
-  onlyPurchased: boolean;
 }
 
 /** 何も絞り込まない状態 */
@@ -33,7 +32,6 @@ export const EMPTY_FILTERS: BookFilters = {
   categories: [],
   publishers: [],
   onlyOngoing: false,
-  onlyPurchased: false,
 };
 
 /** 日本語を含む文字列の比較 */
@@ -92,9 +90,6 @@ export function filterBooks(
       return false;
     }
     if (filters.onlyOngoing && !target.is_ongoing) {
-      return false;
-    }
-    if (filters.onlyPurchased && !target.is_purchased) {
       return false;
     }
     return true;

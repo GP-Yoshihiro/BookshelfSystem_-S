@@ -168,28 +168,16 @@ describe('filterBooks', () => {
     expect(result.map((b) => b.id)).toEqual(['on']);
   });
 
-  it('購入済みで絞り込む', () => {
-    const books = [
-      book({ id: 'yes', is_purchased: true }),
-      book({ id: 'no', is_purchased: false }),
-    ];
-    const result = filterBooks(books, {
-      ...EMPTY_FILTERS,
-      onlyPurchased: true,
-    });
-    expect(result.map((b) => b.id)).toEqual(['yes']);
-  });
-
   it('複数条件は AND で結合する', () => {
     const books = [
-      book({ id: 'both', category: 'comic', is_purchased: true }),
-      book({ id: 'cat', category: 'comic', is_purchased: false }),
-      book({ id: 'buy', category: 'tankobon', is_purchased: true }),
+      book({ id: 'both', category: 'comic', is_ongoing: true }),
+      book({ id: 'cat', category: 'comic', is_ongoing: false }),
+      book({ id: 'ongoing', category: 'tankobon', is_ongoing: true }),
     ];
     const result = filterBooks(books, {
       ...EMPTY_FILTERS,
       categories: ['comic'],
-      onlyPurchased: true,
+      onlyOngoing: true,
     });
     expect(result.map((b) => b.id)).toEqual(['both']);
   });

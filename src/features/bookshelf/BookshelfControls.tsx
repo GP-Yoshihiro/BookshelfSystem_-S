@@ -144,24 +144,6 @@ export function BookshelfControls({
         >
           連載中
         </button>
-
-        <button
-          type="button"
-          aria-pressed={filters.onlyPurchased}
-          onClick={() =>
-            onFiltersChange({
-              ...filters,
-              onlyPurchased: !filters.onlyPurchased,
-            })
-          }
-          className={`rounded-full px-3 py-1 text-xs ${
-            filters.onlyPurchased
-              ? 'bg-wood-500 text-wood-50'
-              : 'bg-wood-700 text-wood-200'
-          }`}
-        >
-          購入済み
-        </button>
       </div>
 
       <p className="text-xs text-wood-300" role="status">
