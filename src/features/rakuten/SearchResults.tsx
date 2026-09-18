@@ -1,15 +1,17 @@
-import Image from 'next/image';
+'use client';
+
+import { useState } from 'react';
+import { groupBySeries, splitExcluded } from './grouping';
+import { SeriesRow } from './SeriesRow';
+import { SingleBookRow } from './SingleBookRow';
 import type { RakutenBookItem } from './types';
-import {
-  estimateCategory,
-  isOngoingByDefault,
-  parseSalesDate,
-} from './parse';
-import { SaveBookForm } from './SaveBookForm';
 
 /**
- * 検索結果の一覧。Server Component。
- * ownedIsbns は本棚に既にある ISBN の集合。
+ * 検索結果の一覧。
+ *
+ * 同じ作品の巻がばらばらに並ぶと目的の本を探しにくいため、作品単位へ
+ * まとめる。1件しかない作品と、巻数を抽出できない商品は従来どおり
+ * 1商品1行で表示する。
  */
 export function SearchResults({
   items,
@@ -18,6 +20,8 @@ export function SearchResults({
   items: readonly RakutenBookItem[];
   ownedIsbns: ReadonlySet<string>;
 }) {
+  const [showsExcluded, setShowsExcluded] = useState(false);
+
   if (items.length === 0) {
     return (
       <p className="text-sm text-wood-200">
@@ -26,58 +30,50 @@ export function SearchResults({
     );
   }
 
+  const { kept, excluded } = splitExcluded(items);
+  const groups = groupBySeries(kept);
+
   return (
-    <ul className="space-y-4">
-      {items.map((item) => {
-        const category = estimateCategory(item);
-        const sales = parseSalesDate(item.salesDate);
-        return (
-          <li
-            key={item.isbn}
-            className="flex gap-4 rounded bg-wood-800 p-3 shadow-book"
+    <div className="space-y-4">
+      {excluded.length > 0 && (
+        <div className="rounded bg-wood-800 p-3 text-sm text-wood-200">
+          <button
+            type="button"
+            onClick={() => setShowsExcluded((current) => !current)}
+            aria-expanded={showsExcluded}
+            className="underline"
           >
-            {item.largeImageUrl.length > 0 && (
-              <Image
-                src={item.largeImageUrl}
-                alt=""
-                width={80}
-                height={112}
-                className="h-28 w-20 flex-none object-contain"
-                unoptimized
-              />
-            )}
-            <div className="min-w-0 flex-1 space-y-1">
-              <p className="font-bold text-wood-50">{item.title}</p>
-              <p className="text-sm text-wood-200">
-                {item.author}／{item.publisherName}
-              </p>
-              {sales.text.length > 0 && (
-                <p className="text-sm text-wood-300">発売日 {sales.text}</p>
-              )}
-              <SaveBookForm
-                alreadyOwned={ownedIsbns.has(item.isbn)}
-                values={{
-                  isbn: item.isbn,
-                  title: item.title,
-                  titleKana: item.titleKana,
-                  author: item.author,
-                  publisher: item.publisherName,
-                  coverImageUrl: item.largeImageUrl,
-                  description: item.itemCaption,
-                  releaseDate: sales.date ?? '',
-                  releaseDateText: sales.text,
-                  itemUrl: item.itemUrl,
-                  defaultCategory: category,
-                  defaultIsOngoing: isOngoingByDefault(
-                    item.seriesName,
-                    category,
-                  ),
-                }}
-              />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+            他 {excluded.length} 件（セット商品など）を除外中
+            {showsExcluded ? '：閉じる' : '：表示する'}
+          </button>
+
+          {showsExcluded && (
+            <ul className="mt-2 space-y-2">
+              {excluded.map((item) => (
+                <SingleBookRow
+                  key={item.isbn}
+                  item={item}
+                  alreadyOwned={ownedIsbns.has(item.isbn)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <ul className="space-y-4">
+        {groups.map((group) =>
+          group.isSingle ? (
+            <SingleBookRow
+              key={group.key}
+              item={group.representative}
+              alreadyOwned={ownedIsbns.has(group.representative.isbn)}
+            />
+          ) : (
+            <SeriesRow key={group.key} group={group} ownedIsbns={ownedIsbns} />
+          ),
+        )}
+      </ul>
+    </div>
   );
 }
