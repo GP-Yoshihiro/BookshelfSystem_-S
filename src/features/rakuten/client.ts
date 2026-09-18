@@ -1,9 +1,15 @@
 import 'server-only';
 
+import { getSiteUrl } from '@/lib/env';
 import type { RakutenBookItem, RakutenSearchSuccess } from './types';
 
+/**
+ * 2026年の刷新で app.rakuten.co.jp から openapi.rakuten.co.jp へ移行した。
+ * 旧ホストは残っているが、新コンソールが発行する UUID 形式の applicationId を
+ * 受け付けず wrong_parameter を返す。
+ */
 const ENDPOINT =
-  'https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404';
+  'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
 
 /** 1ページあたりの取得件数。楽天APIの上限は 30 */
 const HITS_PER_PAGE = 30;
@@ -99,19 +105,26 @@ export async function searchBooksOrThrow(params: {
 
   const url = new URL(ENDPOINT);
   url.searchParams.set('applicationId', appId);
-  // 2026年の仕様変更で必須になった。ヘッダーでも渡せるがヘッダー名が
-  // 公開仕様に明記されていないため、確実なクエリパラメータで送る。
-  // URL は例外・ログのいずれにも出力しないため、値が漏れる経路はない。
-  url.searchParams.set('accessKey', accessKey);
   url.searchParams.set('formatVersion', '2');
-  url.searchParams.set('keyword', params.keyword);
+  // keyword は新APIでは無視され、絞り込まれずに全件が返る。
+  // 実APIで検証した結果 title のみが機能したためこちらを使う。
+  url.searchParams.set('title', params.keyword);
   url.searchParams.set('hits', String(HITS_PER_PAGE));
   url.searchParams.set('page', String(params.page));
 
   const response = await fetch(url, {
     // キャッシュは unstable_cache 側で制御するため fetch 自体はキャッシュしない
     cache: 'no-store',
-    headers: { Accept: 'application/json' },
+    headers: {
+      Accept: 'application/json',
+      // アクセスキーはヘッダーで送る。クエリに置くとURL全体が
+      // ログや例外に載ったときに巻き添えで漏れるため。
+      accessKey,
+      // 新APIは Origin をアプリ登録時の「許可されたウェブサイト」と
+      // 照合する。欠けると 403 REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING
+      // になる。サーバー間通信では自動付与されないため明示的に送る。
+      Origin: getSiteUrl(),
+    },
   });
 
   if (!response.ok) {
@@ -132,6 +145,14 @@ export async function searchBooksOrThrow(params: {
   }
 
   const record = body as Record<string, unknown>;
+
+  // 新APIは認証や権限の失敗を HTTP 200 + errors フィールドで返すことがある。
+  // ここで弾かないと「0件ヒット」と見分けがつかず、原因の分からない
+  // 空の検索結果が表示されてしまう。
+  if ('errors' in record || 'error' in record) {
+    throw new Error('RAKUTEN_REQUEST_REJECTED');
+  }
+
   const rawItems = Array.isArray(record.Items) ? record.Items : [];
 
   const items = rawItems
