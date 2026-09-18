@@ -58,7 +58,7 @@ export function BookshelfControls({
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-48 flex-1">
           <label htmlFor="shelf-search" className="block text-xs text-wood-200">
-            検索（タイトル・著者・出版社）
+            本棚内を検索（タイトル・著者・出版社）
           </label>
           <input
             id="shelf-search"

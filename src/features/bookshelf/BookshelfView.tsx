@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useRef, useState, type TouchEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import { Bookshelf } from './Bookshelf';
 import { BookPreview } from './BookPreview';
 import { BookshelfControls } from './BookshelfControls';
@@ -28,6 +28,7 @@ export function BookshelfView({ books }: { books: readonly Book[] }) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const touchStartXRef = useRef<number | null>(null);
+  const shelfAreaRef = useRef<HTMLDivElement | null>(null);
 
   const visibleBooks = useMemo(() => {
     const searched = searchBooks(books, query);
@@ -81,6 +82,33 @@ export function BookshelfView({ books }: { books: readonly Book[] }) {
       setActiveId(null);
     }
   }
+
+  /**
+   * プレビュー表示中のみ、本棚とプレビューパネルの外側をタップ/クリックしたら
+   * プレビューを閉じる。本自身へのタップは同じ領域内なので、ここでは反応しない
+   * （本を開いた瞬間に閉じてしまう競合を避けられる）。
+   */
+  useEffect(() => {
+    if (activeId === null) {
+      return;
+    }
+
+    function handleOutsidePointerDown(event: MouseEvent) {
+      const area = shelfAreaRef.current;
+      if (area === null) {
+        return;
+      }
+      if (event.target instanceof Node && area.contains(event.target)) {
+        return;
+      }
+      setActiveId(null);
+    }
+
+    document.addEventListener('click', handleOutsidePointerDown);
+    return () => {
+      document.removeEventListener('click', handleOutsidePointerDown);
+    };
+  }, [activeId]);
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
     touchStartXRef.current = event.touches[0]?.clientX ?? null;
@@ -136,6 +164,7 @@ export function BookshelfView({ books }: { books: readonly Book[] }) {
       />
 
       <div
+        ref={shelfAreaRef}
         className="relative"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
