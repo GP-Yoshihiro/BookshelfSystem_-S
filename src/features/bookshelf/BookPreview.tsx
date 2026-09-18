@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { DeleteBookButton } from '@/features/books/DeleteBookButton';
 import { BOOK_CATEGORY_LABELS, type Book } from '@/types/database';
 
 /**
@@ -80,6 +81,10 @@ export function BookPreview({
         >
           閉じる
         </button>
+      </div>
+
+      <div className="mt-3 border-t border-wood-300 pt-3">
+        <DeleteBookButton bookId={book.id} title={book.title} />
       </div>
     </aside>
   );
