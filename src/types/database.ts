@@ -70,6 +70,7 @@ export type Book = {
   purchased_at: string | null;
   /** ISO 8601 の日付 (YYYY-MM-DD) */
   latest_release_date: string | null;
+  release_date_text: string | null;
   item_url: string | null;
   created_at: string;
   updated_at: string;

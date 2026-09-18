@@ -2,7 +2,7 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { getPublicEnv, getServerEnv } from '@/lib/env';
+import { getPublicEnv, getSupabaseServiceRoleKey } from '@/lib/env';
 import type { Database } from '@/types/database';
 
 /**
@@ -39,7 +39,7 @@ export async function createClient() {
  */
 export function createAdminClient() {
   const { supabaseUrl } = getPublicEnv();
-  const { supabaseServiceRoleKey } = getServerEnv();
+  const supabaseServiceRoleKey = getSupabaseServiceRoleKey();
 
   return createServerClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
     cookies: {

@@ -1,0 +1,173 @@
+import 'server-only';
+
+import { getSiteUrl } from '@/lib/env';
+import type { RakutenBookItem, RakutenSearchSuccess } from './types';
+
+/**
+ * 2026年の刷新で app.rakuten.co.jp から openapi.rakuten.co.jp へ移行した。
+ * 旧ホストは残っているが、新コンソールが発行する UUID 形式の applicationId を
+ * 受け付けず wrong_parameter を返す。
+ */
+const ENDPOINT =
+  'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
+
+/** 1ページあたりの取得件数。楽天APIの上限は 30 */
+const HITS_PER_PAGE = 30;
+
+/**
+ * .env.local.example に記載されているプレースホルダ文字列。
+ *
+ * .env.local.example をコピーして .env.local を作った際、この値を
+ * 書き換えずに残すと「空文字ではない」ため設定済みと誤判定されてしまう。
+ * その結果、無効なIDのまま楽天APIへリクエストが送られ、開発者には
+ * 原因の分からない「検索に失敗しました」というエラーだけが見える。
+ * これを防ぐため、既知のプレースホルダは明示的に未設定として扱う。
+ */
+const PLACEHOLDER_APP_ID = 'your-rakuten-application-id';
+const PLACEHOLDER_ACCESS_KEY = 'your-rakuten-access-key';
+
+/**
+ * 環境変数の値が実際に使えるか。
+ * 未設定・空文字・プレースホルダのままのいずれでもない場合に true を返す。
+ * 値そのものは返さない。
+ */
+function isUsableValue(value: unknown, placeholder: string): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed !== placeholder;
+}
+
+/**
+ * 楽天ウェブサービスの認証情報が揃っているか。
+ *
+ * 2026年の仕様変更により applicationId と accessKey が対で必須になった。
+ * 片方だけでは API が wrong_parameter を返すため、両方揃って初めて
+ * 「設定済み」とみなす。
+ */
+export function isRakutenConfigured(): boolean {
+  return (
+    isUsableValue(process.env.RAKUTEN_APP_ID, PLACEHOLDER_APP_ID) &&
+    isUsableValue(process.env.RAKUTEN_ACCESS_KEY, PLACEHOLDER_ACCESS_KEY)
+  );
+}
+
+/** レスポンスの値を安全に文字列へ寄せる。欠けている項目は空文字にする */
+function asString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  return '';
+}
+
+function toBookItem(raw: Record<string, unknown>): RakutenBookItem {
+  return {
+    isbn: asString(raw.isbn),
+    title: asString(raw.title),
+    titleKana: asString(raw.titleKana),
+    author: asString(raw.author),
+    publisherName: asString(raw.publisherName),
+    size: asString(raw.size),
+    booksGenreId: asString(raw.booksGenreId),
+    seriesName: asString(raw.seriesName),
+    salesDate: asString(raw.salesDate),
+    itemCaption: asString(raw.itemCaption),
+    largeImageUrl: asString(raw.largeImageUrl),
+    itemUrl: asString(raw.itemUrl),
+  };
+}
+
+/**
+ * 楽天ブックス書籍検索APIを1回だけ呼ぶ。
+ *
+ * 失敗時は例外を投げる。呼び出し側（cache.ts）はこれを捕捉して
+ * 結果の union へ変換する。例外にしているのは、unstable_cache が
+ * 例外時にキャッシュを保存しないため、失敗が焼き付くのを防げるから。
+ *
+ * APP_ID をログ・エラーメッセージへ含めてはならない。
+ */
+export async function searchBooksOrThrow(params: {
+  keyword: string;
+  page: number;
+}): Promise<RakutenSearchSuccess> {
+  // 判定は isRakutenConfigured と同じ基準を使う。長さだけを見ると
+  // プレースホルダのまま楽天へリクエストしてしまい、原因の分かりにくい
+  // 「検索に失敗しました」だけが表示されることになる。
+  if (!isRakutenConfigured()) {
+    throw new Error('RAKUTEN_CREDENTIALS_NOT_CONFIGURED');
+  }
+  const appId = (process.env.RAKUTEN_APP_ID ?? '').trim();
+  const accessKey = (process.env.RAKUTEN_ACCESS_KEY ?? '').trim();
+
+  const url = new URL(ENDPOINT);
+  url.searchParams.set('applicationId', appId);
+  url.searchParams.set('formatVersion', '2');
+  // keyword は新APIでは無視され、絞り込まれずに全件が返る。
+  // 実APIで検証した結果 title のみが機能したためこちらを使う。
+  url.searchParams.set('title', params.keyword);
+  url.searchParams.set('hits', String(HITS_PER_PAGE));
+  url.searchParams.set('page', String(params.page));
+
+  const response = await fetch(url, {
+    // キャッシュは unstable_cache 側で制御するため fetch 自体はキャッシュしない
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      // アクセスキーはヘッダーで送る。クエリに置くとURL全体が
+      // ログや例外に載ったときに巻き添えで漏れるため。
+      accessKey,
+      // 新APIは Origin をアプリ登録時の「許可されたウェブサイト」と
+      // 照合する。欠けると 403 REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING
+      // になる。サーバー間通信では自動付与されないため明示的に送る。
+      Origin: getSiteUrl(),
+    },
+  });
+
+  if (!response.ok) {
+    // ステータスコードのみを扱い、本文やURLは出力しない（APP_ID を含むため）
+    throw new Error(`RAKUTEN_REQUEST_FAILED_${response.status}`);
+  }
+
+  let body: unknown;
+  try {
+    // JSON パース失敗時に応答本文の断片が例外メッセージへ漏れるため、
+    // 固定の識別子のみを持つ例外へ丸める
+    body = await response.json();
+  } catch {
+    throw new Error('RAKUTEN_INVALID_JSON');
+  }
+  if (typeof body !== 'object' || body === null) {
+    throw new Error('RAKUTEN_UNEXPECTED_BODY');
+  }
+
+  const record = body as Record<string, unknown>;
+
+  // 新APIは認証や権限の失敗を HTTP 200 + errors フィールドで返すことがある。
+  // ここで弾かないと「0件ヒット」と見分けがつかず、原因の分からない
+  // 空の検索結果が表示されてしまう。
+  if ('errors' in record || 'error' in record) {
+    throw new Error('RAKUTEN_REQUEST_REJECTED');
+  }
+
+  const rawItems = Array.isArray(record.Items) ? record.Items : [];
+
+  const items = rawItems
+    .filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === 'object' && item !== null,
+    )
+    .map(toBookItem)
+    // ISBN のない商品は本棚へ保存できないため除外する
+    .filter((item) => item.isbn.length > 0);
+
+  return {
+    items,
+    count: typeof record.count === 'number' ? record.count : items.length,
+    page: typeof record.page === 'number' ? record.page : params.page,
+    pageCount: typeof record.pageCount === 'number' ? record.pageCount : 1,
+  };
+}
