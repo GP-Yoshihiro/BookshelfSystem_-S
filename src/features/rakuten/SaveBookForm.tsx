@@ -132,11 +132,16 @@ export function SaveBookForm({
         </p>
       )}
 
+      {/*
+        保存できるのは購入済みのみになったため、値は hidden で固定する。
+        submit ボタンの name/value で送ると、submitter を伴わない送信が
+        起きたときに黙って未購入で保存され、本棚に出ない本ができてしまう。
+      */}
+      <input type="hidden" name="isPurchased" value="true" />
+
       <div className="flex gap-2">
         <button
           type="submit"
-          name="isPurchased"
-          value="true"
           disabled={isPending}
           className="rounded bg-wood-600 px-3 py-1 text-sm font-medium text-wood-50 hover:bg-wood-700 disabled:opacity-60"
         >
