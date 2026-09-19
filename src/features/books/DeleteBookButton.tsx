@@ -1,0 +1,108 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useActionState, useEffect, useState } from 'react';
+import { deleteBookAction } from './actions';
+import { DELETE_BOOK_INITIAL_STATE } from './state';
+import { speakComplete, speakError } from '@/lib/speech';
+
+/**
+ * 本棚から書籍を削除するボタン。確認ダイアログを内蔵する。
+ *
+ * 削除すると元に戻せず、再度検索して登録し直す必要があるため、
+ * 必ず確認を挟む。何を消そうとしているか分かるよう書名を示す。
+ *
+ * 詳細ページとプレビューの両方から使う。同じ確認体験を2箇所へ
+ * 書き分けると、片方だけ直してしまう事故が起きるため1つにまとめている。
+ *
+ * 置かれる場所の背景が濃色（詳細ページ bg-wood-800）と淡色
+ * （プレビュー bg-wood-50）で異なるため、文字色だけに頼らず背景色を
+ * 持たせている。文字色で切り替える prop を設けると、渡し忘れた側が
+ * 読めなくなるため。
+ */
+export function DeleteBookButton({
+  bookId,
+  title,
+  redirectToShelf = false,
+}: {
+  bookId: string;
+  title: string;
+  /**
+   * 削除後に本棚へ移動するなら true。false ならその場で再読み込みする。
+   *
+   * 行き先を URL 文字列で受け取らないのは、クライアントから渡された URL へ
+   * サーバが飛ばすとオープンリダイレクトになるため。遷移は Server Action が
+   * 固定のパスへ行う。
+   */
+  redirectToShelf?: boolean;
+}) {
+  const router = useRouter();
+  const [state, formAction, isPending] = useActionState(
+    deleteBookAction,
+    DELETE_BOOK_INITIAL_STATE,
+  );
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  // 本棚へ移動する場合、ここへは戻ってこない（Server Action が遷移するため）。
+  // その場合の音声案内は遷移先の DeletedNotice が受け持つ
+  useEffect(() => {
+    if (state.deletedId.length > 0) {
+      speakComplete('本棚から削除しました。');
+      router.refresh();
+      return;
+    }
+    if (state.errorMessage.length > 0) {
+      speakError();
+    }
+  }, [state.deletedId, state.errorMessage, router]);
+
+  if (!isConfirming) {
+    return (
+      <div className="space-y-1">
+        <button
+          type="button"
+          onClick={() => setIsConfirming(true)}
+          className="rounded bg-red-800 px-3 py-1 text-sm font-medium text-wood-50 hover:bg-red-700"
+        >
+          本棚から削除
+        </button>
+        {state.errorMessage.length > 0 && (
+          <p
+            role="alert"
+            className="rounded bg-red-900 px-2 py-1 text-sm text-red-100"
+          >
+            {state.errorMessage}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-2 rounded bg-wood-900 p-3">
+      <input type="hidden" name="bookId" value={bookId} />
+      {redirectToShelf && (
+        <input type="hidden" name="redirectToShelf" value="true" />
+      )}
+      <p className="text-sm text-wood-100">
+        「{title}」を本棚から削除します。元に戻せません。
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setIsConfirming(false)}
+          className="rounded border border-wood-400 px-3 py-1 text-sm text-wood-100"
+        >
+          やめる
+        </button>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded bg-red-800 px-3 py-1 text-sm font-medium text-wood-50 hover:bg-red-700 disabled:opacity-60"
+        >
+          {isPending ? '削除中…' : '削除する'}
+        </button>
+      </div>
+    </form>
+  );
+}

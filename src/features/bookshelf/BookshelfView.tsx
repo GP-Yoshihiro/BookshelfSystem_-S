@@ -87,13 +87,19 @@ export function BookshelfView({ books }: { books: readonly Book[] }) {
    * プレビュー表示中のみ、本棚とプレビューパネルの外側をタップ/クリックしたら
    * プレビューを閉じる。本自身へのタップは同じ領域内なので、ここでは反応しない
    * （本を開いた瞬間に閉じてしまう競合を避けられる）。
+   *
+   * click ではなく pointerdown で判定する。click だと、押されたボタンが
+   * React の再描画で差し替わったあとに外側判定が走ることがあり、押した要素が
+   * 既に DOM から外れているため contains() が false になって「外側を押した」と
+   * 誤判定する。プレビュー内の削除ボタンを押すとプレビューごと閉じてしまう
+   * 不具合が実際に起きた。pointerdown なら DOM が変わる前に判定できる。
    */
   useEffect(() => {
     if (activeId === null) {
       return;
     }
 
-    function handleOutsidePointerDown(event: MouseEvent) {
+    function handleOutsidePointerDown(event: PointerEvent) {
       const area = shelfAreaRef.current;
       if (area === null) {
         return;
@@ -104,9 +110,9 @@ export function BookshelfView({ books }: { books: readonly Book[] }) {
       setActiveId(null);
     }
 
-    document.addEventListener('click', handleOutsidePointerDown);
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
     return () => {
-      document.removeEventListener('click', handleOutsidePointerDown);
+      document.removeEventListener('pointerdown', handleOutsidePointerDown);
     };
   }, [activeId]);
 

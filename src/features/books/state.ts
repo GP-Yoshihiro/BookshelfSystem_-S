@@ -1,4 +1,4 @@
-import type { SaveBookState } from './actions';
+import type { DeleteBookState, SaveBookState } from './actions';
 
 /**
  * 本棚保存フォームの初期状態。
@@ -9,4 +9,10 @@ import type { SaveBookState } from './actions';
 export const SAVE_BOOK_INITIAL_STATE: SaveBookState = {
   errorMessage: '',
   successMessage: '',
+};
+
+/** 書籍削除フォームの初期状態 */
+export const DELETE_BOOK_INITIAL_STATE: DeleteBookState = {
+  errorMessage: '',
+  deletedId: '',
 };

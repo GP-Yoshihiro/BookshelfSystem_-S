@@ -1,12 +1,14 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import {
   ONGOING_CAPABLE_CATEGORIES,
   type BookCategory,
 } from '@/types/database';
 import { userBooksCacheTag } from './keys';
+import { DELETED_PARAM, SHELF_PATH } from './routes';
 
 export interface SaveBookState {
   errorMessage: string;
@@ -109,4 +111,72 @@ export async function saveBookAction(
       ? '購入済みとして本棚に追加しました。'
       : '本棚に追加しました。',
   };
+}
+
+export interface DeleteBookState {
+  errorMessage: string;
+  /** 削除できた書籍の ID。呼び出し側が成功を判定するために使う */
+  deletedId: string;
+}
+
+/**
+ * 本棚から書籍を削除する。
+ *
+ * 所有者の確認は RLS のポリシー books_delete_own に委ねる。
+ * user_id = auth.uid() の行しか削除されないため、他人の書籍 ID を
+ * 送られても0件削除になる。アプリ側で所有者を確認する必要はない。
+ */
+export async function deleteBookAction(
+  _prevState: DeleteBookState,
+  formData: FormData,
+): Promise<DeleteBookState> {
+  const bookId = readString(formData, 'bookId');
+
+  if (bookId.length === 0) {
+    return { errorMessage: GENERIC_ERROR, deletedId: '' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user === null) {
+    return { errorMessage: '認証が必要です。', deletedId: '' };
+  }
+
+  const { data, error } = await supabase
+    .from('books')
+    .delete()
+    .eq('id', bookId)
+    .select('id');
+
+  if (error !== null) {
+    // エラーオブジェクトは出力しない
+    return { errorMessage: GENERIC_ERROR, deletedId: '' };
+  }
+
+  // 他人の書籍や存在しない ID は RLS により0件になる。
+  // 「存在しない」と「他人のもの」を区別せず同じ文言にし、
+  // ID の総当たりで他人の蔵書を推測できないようにする
+  if (data === null || data.length === 0) {
+    return { errorMessage: '削除できませんでした。', deletedId: '' };
+  }
+
+  revalidateTag(userBooksCacheTag(user.id));
+
+  // 詳細ページから削除したときは、ここで本棚へ送る。
+  //
+  // クライアント側で router.push しようとすると間に合わない。
+  // revalidateTag により現在の詳細ページが再描画され、消した本が
+  // 見つからず notFound() に落ちて、遷移を指示する useEffect が動く前に
+  // コンポーネントごと消えてしまうため（実機で 404 に着地するのを確認済み）。
+  //
+  // 行き先は固定文字列にする。クライアントから受け取った URL へ飛ばすと
+  // オープンリダイレクトになるため、真偽値だけを受け取る。
+  if (readBoolean(formData, 'redirectToShelf')) {
+    redirect(`${SHELF_PATH}?${DELETED_PARAM}=1`);
+  }
+
+  return { errorMessage: '', deletedId: bookId };
 }

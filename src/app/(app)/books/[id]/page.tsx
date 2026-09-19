@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getUserBooks } from '@/features/books/cache';
+import { DeleteBookButton } from '@/features/books/DeleteBookButton';
 import { BOOK_CATEGORY_LABELS } from '@/types/database';
 
 export const metadata: Metadata = { title: '書籍の詳細 | Bookshelf' };
@@ -101,6 +102,14 @@ export default async function BookDetailPage({
               楽天ブックスで見る
             </a>
           )}
+
+          <div className="pt-2">
+            <DeleteBookButton
+              bookId={book.id}
+              title={book.title}
+              redirectToShelf
+            />
+          </div>
         </div>
       </div>
 

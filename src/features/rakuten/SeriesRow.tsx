@@ -226,20 +226,12 @@ export function SeriesRow({
             })}
           </ul>
 
+          {/* 保存できるのは購入済みのみ。理由は SaveBookForm と同じ */}
+          <input type="hidden" name="isPurchased" value="true" />
+
           <div className="flex gap-2">
             <button
               type="submit"
-              name="isPurchased"
-              value="false"
-              disabled={isPending || selected.length === 0}
-              className="rounded border border-wood-400 px-3 py-1 text-sm text-wood-100 disabled:opacity-60"
-            >
-              選んだ巻を本棚に追加
-            </button>
-            <button
-              type="submit"
-              name="isPurchased"
-              value="true"
               disabled={isPending || selected.length === 0}
               className="rounded bg-wood-600 px-3 py-1 text-sm font-medium text-wood-50 hover:bg-wood-700 disabled:opacity-60"
             >
