@@ -11,6 +11,7 @@
 // 巻数の切り出しは検索側と同じ規則を使う。ここで別の規則を作ると、
 // 検索でまとまった作品が本棚ではばらける、という食い違いが起きる
 import { parseVolume, seriesKey } from '@/features/rakuten/series';
+import { publisherSortKey } from './publisher';
 import type { Book, BookCategory } from '@/types/database';
 
 export type SortKey = 'category' | 'publisher' | 'title';
@@ -176,7 +177,10 @@ function compareWorksByName(left: Work, right: Work): number {
   if (byCategory !== 0) {
     return byCategory;
   }
-  return compareJa(left.publisher, right.publisher);
+  return compareJa(
+    publisherSortKey(left.publisher),
+    publisherSortKey(right.publisher),
+  );
 }
 
 export function sortBooks(
@@ -194,7 +198,10 @@ export function sortBooks(
       }
     }
     if (key === 'publisher') {
-      const byPublisher = compareJa(left.publisher, right.publisher);
+      const byPublisher = compareJa(
+        publisherSortKey(left.publisher),
+        publisherSortKey(right.publisher),
+      );
       if (byPublisher !== 0) {
         return byPublisher;
       }

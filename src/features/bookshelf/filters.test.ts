@@ -83,6 +83,12 @@ describe('sortBooks', () => {
     ]);
   });
 
+  /**
+   * 出版社名をそのまま比べると読み順にならない。localeCompare('ja') は
+   * 漢字を読みで並べず、ラテン文字とカナが漢字より前へ来るため、
+   * 素の比較では KADOKAWA / マイクロマガジン社 / 講談社 / 秋田書店 の順になる。
+   * 読みの表（publisher.ts）を引いて並べ直している。
+   */
   it('出版社を五十音順で並べる', () => {
     const books = [
       book({ id: 'haku', publisher: '白泉社' }),
@@ -90,15 +96,19 @@ describe('sortBooks', () => {
       book({ id: 'kado', publisher: 'KADOKAWA' }),
       book({ id: 'sho', publisher: '小学館' }),
       book({ id: 'kou', publisher: '講談社' }),
+      book({ id: 'aki', publisher: '秋田書店' }),
+      book({ id: 'micro', publisher: 'マイクロマガジン社' }),
     ];
-    // 読み: かどかわ < こうだんしゃ < しゅうえいしゃ < しょうがくかん < はくせんしゃ
-    // ICU の日本語照合は漢字を読みで並べるため、この順序になる
+    // 読み: あきた < かどかわ < こうだんしゃ < しゅうえいしゃ
+    //       < しょうがくかん < はくせんしゃ < まいくろまがじんしゃ
     expect(sortBooks(books, 'publisher', 'asc').map((b) => b.id)).toEqual([
+      'aki',
       'kado',
       'kou',
       'shu',
       'sho',
       'haku',
+      'micro',
     ]);
   });
 

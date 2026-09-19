@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import { Bookshelf } from './Bookshelf';
 import { BookPreview } from './BookPreview';
 import { BookshelfControls } from './BookshelfControls';
+import { publisherSortKey } from './publisher';
 import {
   EMPTY_FILTERS,
   filterBooks,
@@ -36,8 +37,13 @@ export function BookshelfView({ books }: { books: readonly Book[] }) {
     return sortBooks(filtered, sortKey, sortOrder);
   }, [books, query, filters, sortKey, sortOrder]);
 
+  // 絞り込みタグも並び替えと同じ五十音順にする。片方だけ別の順だと
+  // 目的の出版社を探すときに手間取る
   const publishers = useMemo(
-    () => [...new Set(books.map((book) => book.publisher))].sort(),
+    () =>
+      [...new Set(books.map((book) => book.publisher))].sort((left, right) =>
+        publisherSortKey(left).localeCompare(publisherSortKey(right), 'ja'),
+      ),
     [books],
   );
 
