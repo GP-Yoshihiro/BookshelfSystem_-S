@@ -6,6 +6,16 @@ import type { Book } from '@/types/database';
 import { userBooksCacheKey, userBooksCacheTag } from './keys';
 
 /**
+ * キャッシュを保持する秒数。
+ *
+ * アプリ内の追加・更新・削除は revalidateTag が即座に無効化するため、
+ * 通常の操作でこの時間を待つことはない。これはアプリの外で DB が
+ * 変わったときの保険である。タグしか指定しないと有効期限が無く、
+ * 外から消した本がいつまでも残り続ける（実際に起きた）。
+ */
+const CACHE_REVALIDATE_SECONDS = 3600;
+
+/**
  * 利用者の本棚を取得する。結果はキャッシュされ、保存・更新・削除の
  * Server Action が revalidateTag(userBooksCacheTag(userId)) で無効化する。
  *
@@ -41,7 +51,10 @@ export async function getUserBooks(userId: string): Promise<Book[]> {
       return data;
     },
     userBooksCacheKey(userId),
-    { tags: [userBooksCacheTag(userId)] },
+    {
+      tags: [userBooksCacheTag(userId)],
+      revalidate: CACHE_REVALIDATE_SECONDS,
+    },
   );
 
   return load();
