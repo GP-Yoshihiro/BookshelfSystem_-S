@@ -1,6 +1,6 @@
 /**
  * Supabase スキーマと 1:1 で対応する型定義。
- * supabase/migrations/0001_initial_schema.sql の変更時は本ファイルも更新すること。
+ * supabase/migrations/ の変更時は本ファイルも更新すること。
  */
 
 import type { InviteCodeStatus } from '@/features/auth/messages';
@@ -76,14 +76,31 @@ export type Book = {
   updated_at: string;
 };
 
-export type CalendarReservation = {
+/**
+ * 発売日アラート。作品（シリーズ）単位で登録し、最新巻の発売日を
+ * カレンダーへ載せる。本棚 (books) とは一切紐づかない。
+ *
+ * 旧 calendar_reservations は book_id で books を参照していたため、
+ * まだ本棚に存在しない未発売の巻を扱えず、0007 で削除した。
+ */
+export type ReleaseAlert = {
   id: string;
   user_id: string;
-  book_id: string;
-  /** ISO 8601 の日付 (YYYY-MM-DD) */
-  scheduled_release_date: string;
-  note: string | null;
+  /** 作品の同一性を判定する鍵 */
+  series_key: string;
+  series_title: string;
+  latest_volume: number | null;
+  latest_title: string;
+  latest_isbn: string;
+  /** ISO 8601 の日付 (YYYY-MM-DD)。確定した発売日のみ */
+  latest_release_date: string | null;
+  /** 「2026年秋」のような確定できない表記の原文 */
+  latest_release_date_text: string | null;
+  cover_image_url: string | null;
+  /** 楽天へ最後に問い合わせた時刻 */
+  checked_at: string;
   created_at: string;
+  updated_at: string;
 };
 
 /** DB のデフォルト値・トリガで自動採番される列 */
@@ -93,11 +110,14 @@ export type BookInsert = Omit<Book, GeneratedColumns> &
   Partial<Pick<Book, 'id'>>;
 export type BookUpdate = Partial<Omit<Book, 'id' | 'user_id' | GeneratedColumns>>;
 
-export type CalendarReservationInsert = Omit<
-  CalendarReservation,
-  'id' | 'created_at'
+export type ReleaseAlertInsert = Omit<
+  ReleaseAlert,
+  GeneratedColumns | 'checked_at'
 > &
-  Partial<Pick<CalendarReservation, 'id'>>;
+  Partial<Pick<ReleaseAlert, 'id' | 'checked_at'>>;
+export type ReleaseAlertUpdate = Partial<
+  Omit<ReleaseAlert, 'id' | 'user_id' | 'series_key' | GeneratedColumns>
+>;
 
 export type ProfileUpdate = Partial<
   Pick<Profile, 'display_name' | 'avatar_url'>
@@ -127,10 +147,10 @@ export interface Database {
         Update: BookUpdate;
         Relationships: [];
       };
-      calendar_reservations: {
-        Row: CalendarReservation;
-        Insert: CalendarReservationInsert;
-        Update: Partial<Omit<CalendarReservation, 'id' | 'created_at'>>;
+      release_alerts: {
+        Row: ReleaseAlert;
+        Insert: ReleaseAlertInsert;
+        Update: ReleaseAlertUpdate;
         Relationships: [];
       };
     };

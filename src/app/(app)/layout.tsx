@@ -35,6 +35,9 @@ export default async function AppLayout({
             Bookshelf
           </Link>
           <nav className="flex items-center gap-4 text-sm text-wood-100">
+            <Link href="/calendar" className="hover:underline">
+              カレンダー
+            </Link>
             <Link href="/search" className="hover:underline">
               本を探す
             </Link>

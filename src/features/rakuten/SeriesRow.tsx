@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useActionState, useEffect, useState } from 'react';
+import { AlertButton } from '@/features/alerts/AlertButton';
 import { saveBooksAction } from '@/features/books/bulkActions';
 import { SAVE_BOOKS_INITIAL_STATE } from '@/features/books/bulkState';
 import { speakComplete, speakError } from '@/lib/speech';
@@ -23,9 +24,12 @@ const CATEGORY_VALUES: readonly BookCategory[] = [
 export function SeriesRow({
   group,
   ownedIsbns,
+  alertIds,
 }: {
   group: SeriesGroup;
   ownedIsbns: ReadonlySet<string>;
+  /** series_key → alertId。解除に alertId が要るため Set ではなく Map */
+  alertIds: ReadonlyMap<string, string>;
 }) {
   const [state, formAction, isPending] = useActionState(
     saveBooksAction,
@@ -155,6 +159,15 @@ export function SeriesRow({
             >
               {isOpen ? '巻を閉じる' : '巻を選んで追加'}
             </button>
+
+            {/* 続きが出ない単独商品と、最新巻を特定できない作品には出さない。
+                通知は「次の巻」を追うための機能であるため */}
+            {!group.isSingle && group.latest !== null && (
+              <AlertButton
+                group={group}
+                alertId={alertIds.get(group.key) ?? null}
+              />
+            )}
           </div>
 
           {state.errorMessage.length > 0 && (
