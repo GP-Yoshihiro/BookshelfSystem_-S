@@ -16,9 +16,12 @@ import type { RakutenBookItem } from './types';
 export function SearchResults({
   items,
   ownedIsbns,
+  alertIds,
 }: {
   items: readonly RakutenBookItem[];
   ownedIsbns: ReadonlySet<string>;
+  /** 発売日アラートの series_key → alertId。解除に alertId が要る */
+  alertIds: ReadonlyMap<string, string>;
 }) {
   const [showsExcluded, setShowsExcluded] = useState(false);
 
@@ -70,7 +73,12 @@ export function SearchResults({
               alreadyOwned={ownedIsbns.has(group.representative.isbn)}
             />
           ) : (
-            <SeriesRow key={group.key} group={group} ownedIsbns={ownedIsbns} />
+            <SeriesRow
+              key={group.key}
+              group={group}
+              ownedIsbns={ownedIsbns}
+              alertIds={alertIds}
+            />
           ),
         )}
       </ul>

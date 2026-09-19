@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedRakutenSearch } from '@/features/rakuten/cache';
+import { getUserAlerts } from '@/features/alerts/cache';
 import { getUserBooks } from '@/features/books/cache';
 import { SearchForm } from '@/features/rakuten/SearchForm';
 import { SearchResults } from '@/features/rakuten/SearchResults';
@@ -26,6 +27,17 @@ export default async function SearchPage({
   // レイアウトで未認証は弾かれているが、型のために念のため確認する。
   const ownedIsbns = new Set<string>(
     user === null ? [] : (await getUserBooks(user.id)).map((book) => book.isbn),
+  );
+
+  // 登録済みアラートは series_key → id の対応で運ぶ。
+  // 解除ボタンに alertId が要るため Set では足りない
+  const alertIds = new Map<string, string>(
+    user === null
+      ? []
+      : (await getUserAlerts(user.id)).map((alert) => [
+          alert.series_key,
+          alert.id,
+        ]),
   );
 
   const result = await getCachedRakutenSearch(keyword, 1);
@@ -54,7 +66,11 @@ export default async function SearchPage({
           <p className="text-sm text-wood-300">
             「{keyword}」の検索結果 {result.count} 件
           </p>
-          <SearchResults items={result.items} ownedIsbns={ownedIsbns} />
+          <SearchResults
+            items={result.items}
+            ownedIsbns={ownedIsbns}
+            alertIds={alertIds}
+          />
         </>
       )}
     </div>
