@@ -1,12 +1,14 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import {
   ONGOING_CAPABLE_CATEGORIES,
   type BookCategory,
 } from '@/types/database';
 import { userBooksCacheTag } from './keys';
+import { DELETED_PARAM, SHELF_PATH } from './routes';
 
 export interface SaveBookState {
   errorMessage: string;
@@ -162,5 +164,19 @@ export async function deleteBookAction(
   }
 
   revalidateTag(userBooksCacheTag(user.id));
+
+  // 詳細ページから削除したときは、ここで本棚へ送る。
+  //
+  // クライアント側で router.push しようとすると間に合わない。
+  // revalidateTag により現在の詳細ページが再描画され、消した本が
+  // 見つからず notFound() に落ちて、遷移を指示する useEffect が動く前に
+  // コンポーネントごと消えてしまうため（実機で 404 に着地するのを確認済み）。
+  //
+  // 行き先は固定文字列にする。クライアントから受け取った URL へ飛ばすと
+  // オープンリダイレクトになるため、真偽値だけを受け取る。
+  if (readBoolean(formData, 'redirectToShelf')) {
+    redirect(`${SHELF_PATH}?${DELETED_PARAM}=1`);
+  }
+
   return { errorMessage: '', deletedId: bookId };
 }

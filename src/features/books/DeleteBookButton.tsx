@@ -23,12 +23,18 @@ import { speakComplete, speakError } from '@/lib/speech';
 export function DeleteBookButton({
   bookId,
   title,
-  redirectTo,
+  redirectToShelf = false,
 }: {
   bookId: string;
   title: string;
-  /** 削除後に移動する先。指定しなければその場で再読み込みする */
-  redirectTo?: string;
+  /**
+   * 削除後に本棚へ移動するなら true。false ならその場で再読み込みする。
+   *
+   * 行き先を URL 文字列で受け取らないのは、クライアントから渡された URL へ
+   * サーバが飛ばすとオープンリダイレクトになるため。遷移は Server Action が
+   * 固定のパスへ行う。
+   */
+  redirectToShelf?: boolean;
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(
@@ -37,20 +43,18 @@ export function DeleteBookButton({
   );
   const [isConfirming, setIsConfirming] = useState(false);
 
+  // 本棚へ移動する場合、ここへは戻ってこない（Server Action が遷移するため）。
+  // その場合の音声案内は遷移先の DeletedNotice が受け持つ
   useEffect(() => {
     if (state.deletedId.length > 0) {
       speakComplete('本棚から削除しました。');
-      if (redirectTo === undefined) {
-        router.refresh();
-      } else {
-        router.push(redirectTo);
-      }
+      router.refresh();
       return;
     }
     if (state.errorMessage.length > 0) {
       speakError();
     }
-  }, [state.deletedId, state.errorMessage, redirectTo, router]);
+  }, [state.deletedId, state.errorMessage, router]);
 
   if (!isConfirming) {
     return (
@@ -77,6 +81,9 @@ export function DeleteBookButton({
   return (
     <form action={formAction} className="space-y-2 rounded bg-wood-900 p-3">
       <input type="hidden" name="bookId" value={bookId} />
+      {redirectToShelf && (
+        <input type="hidden" name="redirectToShelf" value="true" />
+      )}
       <p className="text-sm text-wood-100">
         「{title}」を本棚から削除します。元に戻せません。
       </p>

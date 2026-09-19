@@ -107,7 +107,7 @@ export default async function BookDetailPage({
             <DeleteBookButton
               bookId={book.id}
               title={book.title}
-              redirectTo="/"
+              redirectToShelf
             />
           </div>
         </div>

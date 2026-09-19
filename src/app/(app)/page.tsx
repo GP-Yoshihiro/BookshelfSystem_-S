@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { getUserBooks } from '@/features/books/cache';
 import { BookshelfView } from '@/features/bookshelf/BookshelfView';
+import { DeletedNotice } from '@/features/books/DeletedNotice';
 
 export const metadata: Metadata = { title: '本棚 | Bookshelf' };
 
@@ -21,5 +22,10 @@ export default async function BookshelfPage() {
   const allBooks = user === null ? [] : await getUserBooks(user.id);
   const books = allBooks.filter((book) => book.is_purchased);
 
-  return <BookshelfView books={books} />;
+  return (
+    <>
+      <DeletedNotice />
+      <BookshelfView books={books} />
+    </>
+  );
 }
