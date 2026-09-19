@@ -6,6 +6,16 @@ import type { ReleaseAlert } from '@/types/database';
 import { userAlertsCacheKey, userAlertsCacheTag } from './keys';
 
 /**
+ * キャッシュを保持する秒数。
+ *
+ * アプリ内の追加・更新・削除は revalidateTag が即座に無効化するため、
+ * 通常の操作でこの時間を待つことはない。これはアプリの外で DB が
+ * 変わったときの保険である。タグしか指定しないと有効期限が無く、
+ * 外から消した本がいつまでも残り続ける（実際に起きた）。
+ */
+const CACHE_REVALIDATE_SECONDS = 3600;
+
+/**
  * 利用者の発売日アラートを取得する。結果はキャッシュされ、登録・解除の
  * Server Action が revalidateTag(userAlertsCacheTag(userId)) で無効化する。
  *
@@ -42,7 +52,10 @@ export async function getUserAlerts(userId: string): Promise<ReleaseAlert[]> {
       return data;
     },
     userAlertsCacheKey(userId),
-    { tags: [userAlertsCacheTag(userId)] },
+    {
+      tags: [userAlertsCacheTag(userId)],
+      revalidate: CACHE_REVALIDATE_SECONDS,
+    },
   );
 
   return load();
