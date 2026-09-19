@@ -35,17 +35,34 @@ export function AlertButton({
     ALERT_ACTION_INITIAL_STATE,
   );
 
-  const state = alertId === null ? createState : deleteState;
-  const { successMessage, errorMessage } = state;
-
-  // 音声案内（CLAUDE.md 5章）。読み上げる文言に個人情報は含めない
+  // 音声案内と表示は、どちらの操作の結果かを alertId で選んではならない。
+  // 登録が成功すると同じ再描画で alertId が null から値へ変わるため、
+  // 「登録しました」を持っている createState が読まれる前に deleteState
+  // （空）へ切り替わり、完了の案内が一度も出ないまま終わる。
+  // 実機で実際にそうなることを確認したので、両方を別々に見る。
   useEffect(() => {
-    if (successMessage.length > 0) {
-      speakComplete(successMessage);
-    } else if (errorMessage.length > 0) {
+    if (createState.successMessage.length > 0) {
+      speakComplete(createState.successMessage);
+    } else if (createState.errorMessage.length > 0) {
       speakError();
     }
-  }, [successMessage, errorMessage]);
+  }, [createState]);
+
+  useEffect(() => {
+    if (deleteState.successMessage.length > 0) {
+      speakComplete(deleteState.successMessage);
+    } else if (deleteState.errorMessage.length > 0) {
+      speakError();
+    }
+  }, [deleteState]);
+
+  // 画面に出す文言も同様に、直近に結果が返ったほうを使う
+  const message =
+    createState.successMessage.length > 0 ||
+    createState.errorMessage.length > 0
+      ? createState
+      : deleteState;
+  const { successMessage, errorMessage } = message;
 
   // 最新巻を特定できない作品は通知の対象にできない。
   // フックはすべて呼び終えてから返す
