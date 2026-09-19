@@ -41,8 +41,17 @@ export function SearchForm({ initialKeyword }: { initialKeyword: string }) {
    * 入力中に候補がちらつく。最新の要求以外の応答は捨てる。
    */
   const requestIdRef = useRef(0);
-  /** 候補を選んで確定した直後は、その入力で再度候補を出さない */
-  const skipNextFetchRef = useRef(false);
+  /**
+   * 次の入力変化では候補を取りに行かない、という印。
+   *
+   * 候補を選んで確定した直後に、その入力でまた候補を出さないために使う。
+   *
+   * 初期キーワードがあるときも真から始める。/search?q=... を開くと
+   * 入力欄に触れていないのに候補が取得され、検索結果の上へ候補リストが
+   * 開いてしまっていた。候補は利用者が入力したときに出すものであり、
+   * 結果を見に来ただけの画面で結果を覆い隠してはならない。
+   */
+  const skipNextFetchRef = useRef(initialKeyword.trim().length > 0);
 
   const runSearch = useCallback(
     (value: string) => {
