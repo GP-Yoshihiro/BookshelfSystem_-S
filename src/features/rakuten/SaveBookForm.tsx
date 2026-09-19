@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { saveBookAction } from '@/features/books/actions';
 import { SAVE_BOOK_INITIAL_STATE } from '@/features/books/state';
 import { speakComplete, speakError } from '@/lib/speech';
@@ -25,13 +25,6 @@ export interface SaveBookFormValues {
   defaultIsOngoing: boolean;
 }
 
-const CATEGORY_VALUES: readonly BookCategory[] = [
-  'tankobon',
-  'series_tankobon',
-  'light_novel',
-  'comic',
-];
-
 export function SaveBookForm({
   values,
   alreadyOwned,
@@ -43,10 +36,12 @@ export function SaveBookForm({
     saveBookAction,
     SAVE_BOOK_INITIAL_STATE,
   );
-  const [category, setCategory] = useState<BookCategory>(
-    values.defaultCategory,
-  );
-  const [isOngoing, setIsOngoing] = useState(values.defaultIsOngoing);
+  /*
+    分類と連載中は楽天のデータから自動で決める。人が選び直せるようにすると、
+    同じ作品の巻ごとに違う分類が付き、本棚の並びで別作品として分かれてしまう。
+    分類は作品の同一性の判定に使っているため、揺れてはならない。
+  */
+  const category = values.defaultCategory;
 
   useEffect(() => {
     if (state.successMessage.length > 0) {
@@ -56,9 +51,9 @@ export function SaveBookForm({
     }
   }, [state.successMessage, state.errorMessage]);
 
-  // 単行本は DB の制約により連載中を持てないため、選び直したら落とす
-  const canBeOngoing = ONGOING_CAPABLE_CATEGORIES.includes(category);
-  const effectiveIsOngoing = canBeOngoing && isOngoing;
+  // 単行本は DB の制約により連載中を持てないため、分類に応じて落とす
+  const effectiveIsOngoing =
+    ONGOING_CAPABLE_CATEGORIES.includes(category) && values.defaultIsOngoing;
 
   if (alreadyOwned) {
     return (
@@ -96,35 +91,13 @@ export function SaveBookForm({
         value={effectiveIsOngoing ? 'true' : 'false'}
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm text-wood-200">
-          分類
-          <select
-            name="category"
-            value={category}
-            onChange={(event) =>
-              setCategory(event.target.value as BookCategory)
-            }
-            className="ml-2 rounded border border-wood-300 bg-wood-50 px-2 py-1 text-wood-900"
-          >
-            {CATEGORY_VALUES.map((value) => (
-              <option key={value} value={value}>
-                {BOOK_CATEGORY_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </label>
+      <input type="hidden" name="category" value={category} />
 
-        <label className="flex items-center gap-1 text-sm text-wood-200">
-          <input
-            type="checkbox"
-            checked={effectiveIsOngoing}
-            disabled={!canBeOngoing}
-            onChange={(event) => setIsOngoing(event.target.checked)}
-          />
-          連載中
-        </label>
-      </div>
+      {/* 自動で決めた内容は、変更できなくても見えるようにしておく */}
+      <p className="text-sm text-wood-200">
+        分類 {BOOK_CATEGORY_LABELS[category]}
+        {effectiveIsOngoing && '／連載中'}
+      </p>
 
       {state.errorMessage.length > 0 && (
         <p role="alert" className="text-sm text-red-300">
